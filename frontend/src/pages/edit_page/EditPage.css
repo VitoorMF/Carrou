@@ -1,0 +1,253 @@
+:root,
+html,
+body,
+#root {
+    height: 100%;
+    margin: 0;
+}
+
+.editor_root {
+    /* occupy full viewport minus header (header is 60px tall) */
+    height: calc(100vh - 60px);
+    display: grid;
+    grid-template-columns: 200px minmax(520px, 980px) 250px;
+    justify-content: center;
+    gap: 18px;
+    padding: 18px;
+    box-sizing: border-box;
+    background: #f6f7fb;
+    overflow: hidden;
+}
+
+.edit_header {
+    height: 60px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 18px;
+
+    background: linear-gradient(90deg,
+            #1f4fff 0%,
+            #4f7cff 50%,
+            #7aa2ff 100%);
+
+    box-shadow: 0 2px 6px rgba(31, 79, 255, 0.25);
+}
+
+.return {
+    width: fit-content;
+    height: 44px;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+
+    border-radius: 10px;
+    transition:
+        background-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.return:hover {
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.project_name {
+    display: inline-grid;
+    /* chave */
+    align-items: center;
+    max-width: 520px;
+    justify-items: end;
+    /* limite pra não invadir a header */
+}
+
+.project_name input,
+.project_name_mirror {
+    grid-area: 1 / 1;
+    /* sobrepõe input e mirror */
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 0 12px;
+    height: 44px;
+    line-height: 44px;
+    white-space: pre;
+}
+
+.project_name_mirror {
+    visibility: hidden;
+    /* não aparece, mas mede */
+    pointer-events: none;
+}
+
+.project_name input {
+    width: 20ch;
+    /* pequeno quando desfocado */
+    min-width: 10ch;
+    max-width: 100%;
+    box-sizing: border-box;
+
+    background: transparent;
+    border: none;
+    color: #fff;
+    border-radius: 10px;
+
+    transition:
+        width 220ms cubic-bezier(.4, 0, .2, 1),
+        background-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.project_name input:hover {
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.project_name input:focus {
+    outline: none;
+
+    /* no foco, o grid expande conforme o mirror */
+    width: 100%;
+
+    background-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+/* LEFT */
+.left_bar {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.slides_list,
+.tools_card,
+.actions_card {
+    background: #fff;
+    border: 1px solid #e7e9f1;
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.04);
+}
+
+.slides_list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.slide_btn {
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid #edf0f6;
+    background: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: left;
+    padding: 0 12px;
+}
+
+.slide_btn.active {
+    border: 2px solid #3767ff;
+    background: #f2f6ff;
+    color: #1f4fff;
+}
+
+.tools_row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.tool_btn {
+    height: 44px;
+    width: 44px;
+    border-radius: 12px;
+    border: 1px solid #edf0f6;
+    background: #fff;
+    cursor: pointer;
+}
+
+.tool_btn.active {
+    border: 2px solid #3767ff;
+    background: #f2f6ff;
+}
+
+.ghost_btn {
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid #edf0f6;
+    background: #fff;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.primary_button {
+    height: 44px;
+    border-radius: 12px;
+    border: none;
+    background: #3767ff;
+    color: #fff;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.actions_card {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* CENTER */
+.canvas_area {
+    min-width: 0;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+}
+
+/* wrapper define o "tamanho no layout" já escalado */
+.stage_wrap {
+    position: relative;
+    box-sizing: border-box;
+}
+
+/* stage: fica relativo ao wrapper e é escalado com transform — evita cortes por posicionamento absoluto */
+.stage {
+    /* O stage real fica ABSOLUTO e não empurra layout (permite que o wrapper tenha
+       a dimensão escalada enquanto o elemento interno é transformado). */
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+}
+
+/* Elementos */
+.element {
+    position: absolute;
+    padding: 10px 10px;
+    border-radius: 12px;
+    font-weight: 900;
+    cursor: pointer;
+    user-select: none;
+}
+
+.element.selected {
+    outline: 2px dashed #3767ff;
+}
+
+/* RIGHT */
+.right_bar {
+    background: #fff;
+    border: 1px solid #e7e9f1;
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.04);
+    min-width: 0;
+}
