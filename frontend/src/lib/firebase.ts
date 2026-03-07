@@ -10,6 +10,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 export const functions = getFunctions(app);
+const USE_FIREBASE_EMULATORS = import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true";
 
-// ⚠️ ISSO É CRÍTICO
-connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+if (USE_FIREBASE_EMULATORS) {
+  connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+}

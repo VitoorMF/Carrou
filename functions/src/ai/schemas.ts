@@ -68,7 +68,9 @@ export const textElementSchema = z.object({
     fontFamily: z.string().optional(),
     fontStyle: z.string().optional(),
     width: z.number().optional(),
-    align: z.enum(["left", "center", "right"]).optional(),
+    align: z.enum(["left", "center", "right", "justify"]).optional(),
+    lineHeight: z.number().optional(),
+    letterSpacing: z.number().optional(),
     opacity: z.number().optional(),
 });
 
@@ -81,6 +83,11 @@ export const rectElementSchema = z.object({
     height: z.number(),
     fill: z.string(),
     opacity: z.number().optional(),
+});
+
+const vec2Schema = z.object({
+    x: z.number(),
+    y: z.number(),
 });
 
 export const pathElementSchema = z.object({
@@ -101,7 +108,95 @@ export const imageElementSchema = z.object({
     width: z.number(),
     height: z.number(),
     prompt: z.string().min(1),
+    url: z.string().url().optional(),
+    src: z.string().url().optional(),
+    radius: z.number().optional(),
     borderRadius: z.number().optional(),
+    rotate: z.number().optional(),
+    fit: z.enum(["cover", "contain"]).optional(),
+    cover: z.enum(["cover", "contain"]).optional(),
+    opacity: z.number().optional(),
+});
+
+export const gradientRectElementSchema = z.object({
+    id: z.string(),
+    type: z.literal("gradientRect"),
+    x: z.number(),
+    y: z.number(),
+    width: z.number(),
+    height: z.number(),
+    kind: z.enum(["linear", "radial"]),
+    start: vec2Schema.optional(),
+    end: vec2Schema.optional(),
+    center: vec2Schema.optional(),
+    radius: z.number().optional(),
+    // Firestore não aceita array aninhado; aceitamos legado em pares e formato novo flat.
+    stops: z.union([
+        z.array(z.tuple([z.number().min(0).max(1), z.string()])).min(2).max(6),
+        z.array(z.union([z.number().min(0).max(1), z.string()]))
+            .min(4)
+            .max(12)
+            .refine(
+                (arr) => arr.length % 2 === 0 && arr.every((v, i) => (i % 2 === 0 ? typeof v === "number" : typeof v === "string")),
+                "stops flat deve seguir [offset, color, offset, color]"
+            ),
+    ]),
+    opacity: z.number().optional(),
+});
+
+export const glowElementSchema = z.object({
+    id: z.string(),
+    type: z.literal("glow"),
+    x: z.number(),
+    y: z.number(),
+    r: z.number(),
+    color: z.string(),
+    blur: z.number(),
+    opacity: z.number().optional(),
+});
+
+export const glassCardElementSchema = z.object({
+    id: z.string(),
+    type: z.literal("glassCard"),
+    x: z.number(),
+    y: z.number(),
+    width: z.number(),
+    height: z.number(),
+    radius: z.number(),
+    fill: z.string().optional(),
+    stroke: z.string().optional(),
+    strokeWidth: z.number().optional(),
+    opacity: z.number().optional(),
+    shadow: z
+        .object({
+            blur: z.number(),
+            y: z.number(),
+            opacity: z.number(),
+        })
+        .optional(),
+});
+
+export const backgroundImageElementSchema = z.object({
+    id: z.string(),
+    type: z.literal("backgroundImage"),
+    x: z.number(),
+    y: z.number(),
+    width: z.number(),
+    height: z.number(),
+    prompt: z.string().min(1).optional(),
+    url: z.string().url().optional(),
+    src: z.string().url().optional(),
+    opacity: z.number().optional(),
+});
+
+export const noiseElementSchema = z.object({
+    id: z.string(),
+    type: z.literal("noise"),
+    x: z.number(),
+    y: z.number(),
+    width: z.number(),
+    height: z.number(),
+    url: z.string(),
     opacity: z.number().optional(),
 });
 
@@ -110,6 +205,11 @@ export const elementSchema = z.union([
     rectElementSchema,
     pathElementSchema,
     imageElementSchema,
+    gradientRectElementSchema,
+    glowElementSchema,
+    glassCardElementSchema,
+    backgroundImageElementSchema,
+    noiseElementSchema,
 ]);
 
 export const slideSchema = z.object({

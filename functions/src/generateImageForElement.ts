@@ -16,7 +16,7 @@ const corsHandler = cors({ origin: true });
 const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 
 export const generateImageForElement = onRequest(
-    { secrets: [OPENAI_API_KEY] },
+    { secrets: [OPENAI_API_KEY], invoker: "public" },
     (req, res) => {
         return corsHandler(req, res, async () => {
             try {
@@ -43,16 +43,67 @@ export const generateImageForElement = onRequest(
                 const sIndex = slides.findIndex((s: any) => s.id === slideId);
                 if (sIndex < 0) return res.status(404).json({ ok: false, error: "Slide not found" });
 
-                const elements = slides[sIndex]?.canvas?.elements ?? [];
-                const eIndex = elements.findIndex((e: any) => e.id === elementId);
-                if (eIndex < 0) return res.status(404).json({ ok: false, error: "Element not found" });
+                type ElementRef =
+                    | { mode: "canvas"; elements: any[]; eIndex: number }
+                    | { mode: "layer"; layerName: "background" | "atmosphere" | "content" | "ui"; elements: any[]; eIndex: number };
 
-                const el = elements[eIndex];
-                if (el.type !== "image") return res.status(400).json({ ok: false, error: "Element is not image" });
+                function findElementRef(slide: any, targetId: string): ElementRef | null {
+                    const canvasElements = slide?.canvas?.elements;
+                    if (Array.isArray(canvasElements)) {
+                        const eIndex = canvasElements.findIndex((e: any) => e?.id === targetId);
+                        if (eIndex >= 0) {
+                            return { mode: "canvas", elements: canvasElements, eIndex };
+                        }
+                    }
+
+                    const layers = slide?.layers ?? {};
+                    const layerNames: Array<"background" | "atmosphere" | "content" | "ui"> = [
+                        "background",
+                        "atmosphere",
+                        "content",
+                        "ui",
+                    ];
+
+                    for (const layerName of layerNames) {
+                        const layerEls = layers?.[layerName];
+                        if (!Array.isArray(layerEls)) continue;
+                        const eIndex = layerEls.findIndex((e: any) => e?.id === targetId);
+                        if (eIndex >= 0) {
+                            return { mode: "layer", layerName, elements: layerEls, eIndex };
+                        }
+                    }
+
+                    return null;
+                }
+
+                function writeElement(slide: any, refData: ElementRef, nextEl: any) {
+                    if (refData.mode === "canvas") {
+                        const nextElements = [...refData.elements];
+                        nextElements[refData.eIndex] = nextEl;
+                        slide.canvas = slide.canvas ?? {};
+                        slide.canvas.elements = nextElements;
+                        return;
+                    }
+
+                    const nextElements = [...refData.elements];
+                    nextElements[refData.eIndex] = nextEl;
+
+                    slide.layers = slide.layers ?? {};
+                    slide.layers[refData.layerName] = nextElements;
+                }
+
+                const slide = slides[sIndex];
+                const elRef = findElementRef(slide, elementId);
+                if (!elRef) return res.status(404).json({ ok: false, error: "Element not found" });
+
+                const el = elRef.elements[elRef.eIndex];
+                if (el.type !== "image" && el.type !== "backgroundImage") {
+                    return res.status(400).json({ ok: false, error: "Element is not image/backgroundImage" });
+                }
 
                 // idempotente
-                if (el.src) {
-                    return res.json({ ok: true, src: el.src, cached: true });
+                if (el.url || el.src) {
+                    return res.json({ ok: true, src: el.url ?? el.src, cached: true });
                 }
 
                 if (!el.prompt) {
@@ -60,13 +111,11 @@ export const generateImageForElement = onRequest(
                 }
 
                 // marca pending
-                elements[eIndex] = { ...el, status: "pending" };
-                slides[sIndex].canvas = slides[sIndex].canvas ?? {};
-                slides[sIndex].canvas.elements = elements;
+                writeElement(slide, elRef, { ...el, status: "pending" });
 
                 await ref.update({
                     slides,
-                    updatedAt: new Date(),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 });
 
                 // ✅ cria client com secret AQUI DENTRO
@@ -113,12 +162,23 @@ export const generateImageForElement = onRequest(
 
 
                 // status ready + src
-                elements[eIndex] = { ...elements[eIndex], src, status: "ready" };
-                slides[sIndex].canvas.elements = elements;
+                const refreshedRef = findElementRef(slides[sIndex], elementId);
+                const currentEl = refreshedRef
+                    ? refreshedRef.elements[refreshedRef.eIndex]
+                    : el;
+
+                if (refreshedRef) {
+                    writeElement(slides[sIndex], refreshedRef, {
+                        ...currentEl,
+                        url: src,
+                        src,
+                        status: "ready",
+                    });
+                }
 
                 await ref.update({
                     slides,
-                    updatedAt: new Date(),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 });
 
                 return res.json({ ok: true, src });

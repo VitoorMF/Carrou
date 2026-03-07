@@ -76,7 +76,7 @@ export async function generateCarouselJson(params: {
         openai,
         userPrompt,
         creativeDirection,
-        model = "gpt-5",
+        model = "gpt-4o-mini",
     } = params;
 
     const themeRules = getThemeRules(creativeDirection.visual_style);
@@ -88,6 +88,8 @@ export async function generateCarouselJson(params: {
             creativeDirection,
             themeRules,
         }),
+        temperature: 0.5,
+        max_output_tokens: 3200,
     });
 
     const raw = response.output_text;

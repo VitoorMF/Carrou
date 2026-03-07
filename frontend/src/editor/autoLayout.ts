@@ -123,7 +123,17 @@ export function clearMeasureCache() {
 }
 
 function findById(slide: any, id: string) {
-    return (slide?.canvas?.elements ?? []).find((e: any) => e?.id === id) ?? null;
+    const canvasElements = Array.isArray(slide?.canvas?.elements) ? slide.canvas.elements : [];
+    const layerElements = slide?.layers
+        ? [
+            ...(Array.isArray(slide.layers.background) ? slide.layers.background : []),
+            ...(Array.isArray(slide.layers.atmosphere) ? slide.layers.atmosphere : []),
+            ...(Array.isArray(slide.layers.content) ? slide.layers.content : []),
+            ...(Array.isArray(slide.layers.ui) ? slide.layers.ui : []),
+        ]
+        : [];
+
+    return [...canvasElements, ...layerElements].find((e: any) => e?.id === id) ?? null;
 }
 
 /**
@@ -149,8 +159,8 @@ export function flow(
 
     const headlineH =
         measureTextHeight({
-            text: headline.text ?? "",
-            width: headline.w,
+            text: headline.text ?? headline.content ?? "",
+            width: headline.w ?? headline.width ?? 700,
             fontSize: headline.fontSize,
             fontWeight: headline.fontWeight,
             lineHeight: headline.lineHeight ?? 1.2,
@@ -165,8 +175,8 @@ export function flow(
 
     const bodyH =
         measureTextHeight({
-            text: body.text ?? "",
-            width: body.w,
+            text: body.text ?? body.content ?? "",
+            width: body.w ?? body.width ?? 700,
             fontSize: body.fontSize,
             fontWeight: body.fontWeight,
             lineHeight: body.lineHeight ?? 1.2,
@@ -181,8 +191,8 @@ export function flow(
 
         bullets.h =
             measureTextHeight({
-                text: bullets.text ?? "",
-                width: bullets.w,
+                text: bullets.text ?? bullets.content ?? "",
+                width: bullets.w ?? bullets.width ?? 700,
                 fontSize: bullets.fontSize,
                 fontWeight: bullets.fontWeight,
                 lineHeight: bullets.lineHeight ?? 1.3,

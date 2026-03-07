@@ -1,56 +1,31 @@
-import { useState } from 'react'
-import './CreatePage.css'
-import { auth, db } from '../../services/firebase';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
-import { generateCarousel } from '../../services/functions';
-import type { Carousel, GenerateCarouselPayload } from '../../types/caroussel';
-import { signInAnonymously } from 'firebase/auth';
-import { editorial3D } from '../../layouts/editorial3D';
-import { applyAutoLayoutAsync } from '../../editor/autoLayout';
-import { luxuryMinimal } from '../../layouts/luxuryMinimal';
-import { microblogBold } from '../../layouts/microBlog';
+import { useState } from "react";
+import "./CreatePage.css";
+import { auth } from "../../services/firebase";
+import { useNavigate } from "react-router-dom";
+import { generateCarousel } from "../../services/functions";
+import { signInAnonymously } from "firebase/auth";
+import { AppSidebar } from "../../components/app_sidebar/AppSidebar";
+import { useAuth } from "../../lib/hooks/useAuth";
+
+const USE_FIREBASE_EMULATORS = import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true";
+const IMPROVE_PROMPT_ENDPOINT = USE_FIREBASE_EMULATORS
+    ? "http://127.0.0.1:5001/carrosselize/us-central1/improvePrompt"
+    : "https://us-central1-carrosselize.cloudfunctions.net/improvePrompt";
 
 async function ensureAuth() {
-    if (auth.currentUser) return auth.currentUser;
+    if (auth.currentUser) {
+        await auth.currentUser.getIdToken(true);
+        return auth.currentUser;
+    }
+
     const cred = await signInAnonymously(auth);
+    await cred.user.getIdToken(true);
+
     return cred.user;
 }
 
-
-async function saveProjectToFirestore(carousel: Carousel) {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Usuário não autenticado.");
-
-    let normalized;
-    if (carousel.meta.theme === "editorial3D") {
-        normalized = editorial3D(carousel);
-    } if (carousel.meta.theme === "luxuryMinimal") {
-        normalized = luxuryMinimal(carousel);
-    } if (carousel.meta.theme === "microBlogBold") {
-        normalized = microblogBold(carousel);
-    }
-
-    const computed = await applyAutoLayoutAsync(normalized);
-
-    const docData = stripUndefined({
-        ownerId: user.uid,
-        status: "ready",
-        meta: computed.meta,
-        ai: {
-            generator: "generateCarousel:v1",
-            raw: carousel,
-        },
-        slides: computed.slides,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-    });
-
-    const ref = await addDoc(collection(db, "projects"), docData);
-    return ref.id;
-}
-
 export default function CreatePage() {
+    const { user } = useAuth();
     const [prompt, setPrompt] = useState("");
 
     const [formato, setFormato] = useState<string | null>(null);
@@ -87,7 +62,7 @@ export default function CreatePage() {
             setOptimizing(true);
             setErr(null);
 
-            const res = await fetch("http://localhost:5001/carrosselize/us-central1/improvePrompt", {
+            const res = await fetch(IMPROVE_PROMPT_ENDPOINT, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -123,39 +98,15 @@ export default function CreatePage() {
             setLoading(true);
             setErr(null);
 
-            const payload: GenerateCarouselPayload = {
-                prompt: prompt.trim(),
-                meta: {
-                    objective: active ?? "educacional",
-                    format: formato ?? "dicas",
-                    audience: publico ?? "iniciante",
-                    cta: cta ?? "salvar",
-                    theme: layout ?? "editorial3D",
-                    slideCount: 6,
-                    language: "pt-BR",
-                    title: "AI will choose the title",
-                },
-            };
-
-            const raw = await generateCarousel(payload);
-
-            // normaliza pra garantir que title é string SEMPRE
-            const carousel: Carousel = {
-                ...raw,
-                meta: {
-                    ...raw.meta,
-                    theme: payload.meta.theme,
-                    title: raw.meta.title ?? payload.meta.title ?? "Carrossel",
-                },
-            };
-
             await ensureAuth();
 
-            const projectId = await saveProjectToFirestore(carousel);
-            console.log("vou navegar para:", `/editor/${projectId}`);
-            navigate(`/editor/${projectId}`);
+            const { projectId } = await generateCarousel({
+                prompt: prompt.trim(),
+            });
 
+            navigate(`/editor/${projectId}`);
         } catch (e: any) {
+            console.error("ERRO handleCreate:", e);
             setErr(e?.message ?? "Erro ao gerar carrossel");
         } finally {
             setLoading(false);
@@ -166,263 +117,271 @@ export default function CreatePage() {
 
     // CreatePage.tsx (somente o JSX/HTML da página)
     return (
-        <section className="createPage">
-            <header className="createHeader">
-                <div className="headerLeft">
-                    <button className="ghostBtn" onClick={() => navigate(-1)}>← Voltar</button>
-                    <h1 className="title">Criar carrossel</h1>
-                    <p className="subtitle">Configure objetivo, formato e estilo — depois gere e abra no editor.</p>
-                </div>
+        <div className="app_shell">
+            <AppSidebar
+                avatarUrl={user?.photoURL ?? null}
+                initials={user?.displayName?.[0]?.toUpperCase() ?? "U"}
+            />
 
-                <div className="headerRight">
-                    <div className="pill">
-                        <span className="pillDot" />
-                        <span className="pillText">{loading ? "Gerando..." : "Pronto para gerar"}</span>
-                    </div>
-                </div>
-            </header>
-
-            <div className="createGrid">
-                {/* LEFT: Prompt card */}
-                <div className="card promptCard">
-                    <div className="cardTop">
-                        <div className="cardTitleWrap">
-                            <h2 className="cardTitle">Prompt</h2>
-                            <p className="cardHint">Seja específico: tema, público e promessa.</p>
+            <main className="app_shell_main">
+                <section className="createPage">
+                    <header className="createHeader">
+                        <div className="headerLeft">
+                            <h1 className="title">Criar carrossel</h1>
+                            <p className="subtitle">Configure objetivo, formato e estilo e depois gere e abra no editor.</p>
                         </div>
 
-                        <div className="miniActions">
-                            <button
-                                type="button"
-                                className="ghostBtn"
-                                onClick={() => setPrompt("")}
-                                disabled={!prompt.trim() || loading}
-                                title="Limpar prompt"
-                            >
-                                Limpar
-                            </button>
-
-                            <button
-                                type="button"
-                                className="ghostBtn"
-                                onClick={() =>
-                                    setPrompt(prompts[Math.floor(Math.random() * prompts.length)])
-                                }
-                                disabled={loading}
-                                title="Exemplo"
-                            >
-                                Exemplo
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="textareaShell">
-                        <textarea
-                            className="textarea"
-                            value={prompt}
-                            onChange={(e) => setPrompt(e.target.value)}
-                            placeholder="Ex: Faça um carrossel sobre..."
-                            disabled={loading}
-                        />
-                        <div className="textareaFooter">
-                            <span className="charCount">{prompt.length} caracteres</span>
-                            <span className="kbdHint">
-                                <span className="kbd">⌘</span> + <span className="kbd">Enter</span> para gerar
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="primaryActions">
-                        <button
-                            className="primaryBtn"
-                            onClick={handleCreate}
-                            disabled={loading || !prompt.trim()}
-                        >
-                            {loading ? (
-                                <>
-                                    <span className="spinner" />
-                                    Gerando…
-                                </>
-                            ) : (
-                                "Gerar carrossel"
-                            )}
-                        </button>
-
-                        <button
-                            type="button"
-                            className="secondaryBtn"
-                            onClick={handleImprovePrompt}
-                            disabled={loading || optimizing || !prompt.trim()}
-                        >
-                            {optimizing ? "Otimizando..." : "Otimizar prompt"}
-                        </button>
-                    </div>
-
-                    {err && <p className="errorText">{err}</p>}
-                </div>
-
-                {/* RIGHT: Settings card */}
-                <div className="card settingsCard">
-                    <div className="cardTop">
-                        <div className="cardTitleWrap">
-                            <h2 className="cardTitle">Estilo e estrutura</h2>
-                            <p className="cardHint">Escolhas rápidas que guiam a IA.</p>
-                        </div>
-                    </div>
-
-                    <div className="settingsList">
-                        <div className="settingGroup">
-                            <div className="groupHead">
-                                <p className="groupTitle">Tema</p>
-                                <p className="groupDesc">Visual e sensação do design.</p>
+                        <div className="headerRight">
+                            <div className="pill">
+                                <span className="pillDot" />
+                                <span className="pillText">{loading ? "Gerando..." : "Pronto para gerar"}</span>
                             </div>
-                            <div className="chips">
-                                {theme.map((e) => (
+                        </div>
+                    </header>
+
+                    <div className="createGrid">
+                        {/* LEFT: Prompt card */}
+                        <div className="card promptCard">
+                            <div className="cardTop">
+                                <div className="cardTitleWrap">
+                                    <h2 className="cardTitle">Prompt</h2>
+                                    <p className="cardHint">Seja específico: tema, público e promessa.</p>
+                                </div>
+
+                                <div className="miniActions">
                                     <button
                                         type="button"
-                                        key={e.id}
-                                        className={`chip ${layout === e.id ? "isActive" : ""}`}
-                                        onClick={() => setLayout(e.id)}
-                                        disabled={loading}
+                                        className="ghostBtn"
+                                        onClick={() => setPrompt("")}
+                                        disabled={!prompt.trim() || loading}
+                                        title="Limpar prompt"
                                     >
-                                        {e.label}
+                                        Limpar
                                     </button>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="settingGroup">
-                            <div className="groupHead">
-                                <p className="groupTitle">Objetivo</p>
-                                <p className="groupDesc">O que você quer que o post faça?</p>
-                            </div>
-                            <div className="chips">
-                                {objetivos.map((obj) => (
+
                                     <button
                                         type="button"
-                                        key={obj.id}
-                                        className={`chip ${active === obj.id ? "isActive" : ""}`}
-                                        onClick={() => setActive(obj.id)}
+                                        className="ghostBtn"
+                                        onClick={() =>
+                                            setPrompt(prompts[Math.floor(Math.random() * prompts.length)])
+                                        }
                                         disabled={loading}
+                                        title="Exemplo"
                                     >
-                                        {obj.label}
+                                        Exemplo
                                     </button>
-                                ))}
+                                </div>
                             </div>
+
+                            <div className="textareaShell">
+                                <textarea
+                                    className="textarea"
+                                    value={prompt}
+                                    onChange={(e) => setPrompt(e.target.value)}
+                                    placeholder="Ex: Faça um carrossel sobre..."
+                                    disabled={loading}
+                                />
+                                <div className="textareaFooter">
+                                    <span className="charCount">{prompt.length} caracteres</span>
+                                    <span className="kbdHint">
+                                        <span className="kbd">⌘</span> + <span className="kbd">Enter</span> para gerar
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="primaryActions">
+                                <button
+                                    className="primaryBtn"
+                                    onClick={handleCreate}
+                                    disabled={loading || !prompt.trim()}
+                                >
+                                    {loading ? (
+                                        <>
+                                            <span className="spinner" />
+                                            Gerando…
+                                        </>
+                                    ) : (
+                                        "Gerar carrossel"
+                                    )}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="secondaryBtn"
+                                    onClick={handleImprovePrompt}
+                                    disabled={loading || optimizing || !prompt.trim()}
+                                >
+                                    {optimizing ? "Otimizando..." : "Otimizar prompt"}
+                                </button>
+                            </div>
+
+                            {err && <p className="errorText">{err}</p>}
                         </div>
 
-
-
-                        <button
-                            type="button"
-                            className="ghostBtn"
-                            onClick={() => setAdvancedSettingsVisible(!advancedSettingsVisible)}
-                        >
-                            {advancedSettingsVisible ? "Ocultar configurações avançadas" : "Mostrar configurações avançadas"}
-                        </button>
-                        {advancedSettingsVisible && (<>
-                            <div className="settingGroup">
-                                <div className="groupHead">
-                                    <p className="groupTitle">Formato</p>
-                                    <p className="groupDesc">Estrutura de narrativa do carrossel.</p>
-                                </div>
-                                <div className="chips chipsIcon">
-                                    {formatos.map((fmt) => (
-                                        <button
-                                            type="button"
-                                            key={fmt.id}
-                                            className={`chip chipIcon ${formato === fmt.id ? "isActive" : ""}`}
-                                            onClick={() => setFormato(fmt.id)}
-                                            disabled={loading}
-                                            title={fmt.label}
-                                        >
-                                            <span className="chipIconInner">{fmt.label}</span>
-                                        </button>
-                                    ))}
+                        {/* RIGHT: Settings card */}
+                        <div className="card settingsCard">
+                            <div className="cardTop">
+                                <div className="cardTitleWrap">
+                                    <h2 className="cardTitle">Estilo e estrutura</h2>
+                                    <p className="cardHint">Escolhas rápidas que guiam a IA.</p>
                                 </div>
                             </div>
 
-                            <div className="settingGroup">
-                                <div className="groupHead">
-                                    <p className="groupTitle">Público-alvo</p>
-                                    <p className="groupDesc">Para quem você está falando?</p>
+                            <div className="settingsList">
+                                <div className="settingGroup">
+                                    <div className="groupHead">
+                                        <p className="groupTitle">Tema</p>
+                                        <p className="groupDesc">Visual e sensação do design.</p>
+                                    </div>
+                                    <div className="chips">
+                                        {theme.map((e) => (
+                                            <button
+                                                type="button"
+                                                key={e.id}
+                                                className={`chip ${layout === e.id ? "isActive" : ""}`}
+                                                onClick={() => setLayout(e.id)}
+                                                disabled={loading}
+                                            >
+                                                {e.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="chips">
-                                    {publicos.map((p) => (
-                                        <button
-                                            type="button"
-                                            key={p.id}
-                                            className={`chip ${publico === p.id ? "isActive" : ""}`}
-                                            onClick={() => setPublico(p.id)}
-                                            disabled={loading}
-                                        >
-                                            {p.label}
-                                        </button>
-                                    ))}
+                                <div className="settingGroup">
+                                    <div className="groupHead">
+                                        <p className="groupTitle">Objetivo</p>
+                                        <p className="groupDesc">O que você quer que o post faça?</p>
+                                    </div>
+                                    <div className="chips">
+                                        {objetivos.map((obj) => (
+                                            <button
+                                                type="button"
+                                                key={obj.id}
+                                                className={`chip ${active === obj.id ? "isActive" : ""}`}
+                                                onClick={() => setActive(obj.id)}
+                                                disabled={loading}
+                                            >
+                                                {obj.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
+
+
+
+                                <button
+                                    type="button"
+                                    className="ghostBtn"
+                                    onClick={() => setAdvancedSettingsVisible(!advancedSettingsVisible)}
+                                >
+                                    {advancedSettingsVisible ? "Ocultar configurações avançadas" : "Mostrar configurações avançadas"}
+                                </button>
+                                {advancedSettingsVisible && (<>
+                                    <div className="settingGroup">
+                                        <div className="groupHead">
+                                            <p className="groupTitle">Formato</p>
+                                            <p className="groupDesc">Estrutura de narrativa do carrossel.</p>
+                                        </div>
+                                        <div className="chips chipsIcon">
+                                            {formatos.map((fmt) => (
+                                                <button
+                                                    type="button"
+                                                    key={fmt.id}
+                                                    className={`chip chipIcon ${formato === fmt.id ? "isActive" : ""}`}
+                                                    onClick={() => setFormato(fmt.id)}
+                                                    disabled={loading}
+                                                    title={fmt.label}
+                                                >
+                                                    <span className="chipIconInner">{fmt.label}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="settingGroup">
+                                        <div className="groupHead">
+                                            <p className="groupTitle">Público-alvo</p>
+                                            <p className="groupDesc">Para quem você está falando?</p>
+                                        </div>
+                                        <div className="chips">
+                                            {publicos.map((p) => (
+                                                <button
+                                                    type="button"
+                                                    key={p.id}
+                                                    className={`chip ${publico === p.id ? "isActive" : ""}`}
+                                                    onClick={() => setPublico(p.id)}
+                                                    disabled={loading}
+                                                >
+                                                    {p.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="settingGroup">
+                                        <div className="groupHead">
+                                            <p className="groupTitle">CTA automático</p>
+                                            <p className="groupDesc">Terminar com chamada pra ação?</p>
+                                        </div>
+                                        <div className="chips">
+                                            {ctas.map((c) => (
+                                                <button
+                                                    type="button"
+                                                    key={c.id}
+                                                    className={`chip ${cta === c.id ? "isActive" : ""}`}
+                                                    onClick={() => setCta(c.id)}
+                                                    disabled={loading}
+                                                >
+                                                    {c.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div></>)}
                             </div>
 
-                            <div className="settingGroup">
-                                <div className="groupHead">
-                                    <p className="groupTitle">CTA automático</p>
-                                    <p className="groupDesc">Terminar com chamada pra ação?</p>
+                            {hasAnySelection && (
+                                <div className="summaryBar">
+                                    {selectedObjective && (
+                                        <div className="summaryItem">
+                                            <span className="summaryLabel">Objetivo</span>
+                                            <span className="summaryValue">{selectedObjective.label}</span>
+                                        </div>
+                                    )}
+
+                                    {selectedFormat && (
+                                        <div className="summaryItem">
+                                            <span className="summaryLabel">Formato</span>
+                                            <span className="summaryValue">{selectedFormat.label}</span>
+                                        </div>
+                                    )}
+
+                                    {selectedAudience && (
+                                        <div className="summaryItem">
+                                            <span className="summaryLabel">Público</span>
+                                            <span className="summaryValue">{selectedAudience.label}</span>
+                                        </div>
+                                    )}
+
+                                    {selectedCta && (
+                                        <div className="summaryItem">
+                                            <span className="summaryLabel">CTA</span>
+                                            <span className="summaryValue">{selectedCta.label}</span>
+                                        </div>
+                                    )}
+
+                                    {selectedTheme && (
+                                        <div className="summaryItem">
+                                            <span className="summaryLabel">Tema</span>
+                                            <span className="summaryValue">{selectedTheme.label}</span>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="chips">
-                                    {ctas.map((c) => (
-                                        <button
-                                            type="button"
-                                            key={c.id}
-                                            className={`chip ${cta === c.id ? "isActive" : ""}`}
-                                            onClick={() => setCta(c.id)}
-                                            disabled={loading}
-                                        >
-                                            {c.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div></>)}
+                            )}
+                        </div>
                     </div>
-
-                    {hasAnySelection && (
-                        <div className="summaryBar">
-                            {selectedObjective && (
-                                <div className="summaryItem">
-                                    <span className="summaryLabel">Objetivo</span>
-                                    <span className="summaryValue">{selectedObjective.label}</span>
-                                </div>
-                            )}
-
-                            {selectedFormat && (
-                                <div className="summaryItem">
-                                    <span className="summaryLabel">Formato</span>
-                                    <span className="summaryValue">{selectedFormat.label}</span>
-                                </div>
-                            )}
-
-                            {selectedAudience && (
-                                <div className="summaryItem">
-                                    <span className="summaryLabel">Público</span>
-                                    <span className="summaryValue">{selectedAudience.label}</span>
-                                </div>
-                            )}
-
-                            {selectedCta && (
-                                <div className="summaryItem">
-                                    <span className="summaryLabel">CTA</span>
-                                    <span className="summaryValue">{selectedCta.label}</span>
-                                </div>
-                            )}
-
-                            {selectedTheme && (
-                                <div className="summaryItem">
-                                    <span className="summaryLabel">Tema</span>
-                                    <span className="summaryValue">{selectedTheme.label}</span>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </div>
-        </section>
+                </section>
+            </main>
+        </div>
     );
 
 

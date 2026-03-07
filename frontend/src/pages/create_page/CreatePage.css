@@ -25,10 +25,13 @@
 }
 
 .createPage {
-    min-height: 100vh;
-    padding: 28px;
+    min-height: 100%;
+    padding: 20px;
     color: var(--text);
-    background: var(--bg);
+    background:
+        radial-gradient(circle at 5% 0%, #d8f2ef 0%, transparent 38%),
+        linear-gradient(180deg, #eef8f8 0%, var(--bg) 100%);
+    box-sizing: border-box;
 }
 
 /* HEADER */
@@ -38,6 +41,10 @@
     align-items: flex-start;
     gap: 18px;
     margin-bottom: 18px;
+}
+
+.headerLeft {
+    max-width: 760px;
 }
 
 .title {

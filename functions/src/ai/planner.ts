@@ -39,13 +39,15 @@ export async function planCreativeDirection(params: {
     userPrompt: string;
     model?: string;
 }): Promise<CreativeDirection> {
-    const { openai, userPrompt, model = "gpt-5-mini" } = params;
+    const { openai, userPrompt, model = "gpt-4o-mini" } = params;
 
     const signals = detectPromptSignals(userPrompt);
 
     const response = await openai.responses.create({
         model,
         input: buildCreativePlannerPrompt(userPrompt, signals),
+        temperature: 0.2,
+        max_output_tokens: 500,
     });
 
     const raw = response.output_text;

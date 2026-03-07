@@ -1,7 +1,6 @@
-import { Circle, Image, Layer, Path, Rect, Stage, Text } from "react-konva";
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
-import type { Carousel, El } from "./types";
-import { useRef, } from "react";
+import { Circle, Group, Image, Layer, Path, Rect, Stage, Text } from "react-konva";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import type { Carousel, El, Slide } from "./types";
 import "./Canvas.css";
 
 const DOC_W = 1080;
@@ -14,30 +13,92 @@ export interface CanvasRef {
 type CanvasProps = {
     carousel: Carousel | null;
     slideIndex?: number;
+    zoom?: number;
     onExportPNG?: (dataUrl: string) => void;
 };
 
-export const Canvas = forwardRef<CanvasRef, CanvasProps>(({ carousel, slideIndex, onExportPNG }, ref) => {
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 1;
+
+function normalizeFontStyle(raw?: string, isHeading?: boolean): "normal" | "bold" | "italic" | "bold italic" {
+    if (!raw) return isHeading ? "bold" : "normal";
+    const value = raw.toLowerCase().trim();
+
+    if (value === "normal" || value === "regular" || value === "400" || value === "500") return "normal";
+    if (value === "bold" || value === "600" || value === "700" || value === "800") return "bold";
+    if (value === "italic") return "italic";
+    if (value === "bold italic" || value === "italic bold") return "bold italic";
+    return isHeading ? "bold" : "normal";
+}
+
+function normalizeFontFamily(raw?: string) {
+    if (!raw) return "Manrope";
+    if (/poppins|sora|montserrat|manrope/i.test(raw)) return raw;
+    return `${raw}, Manrope`;
+}
+
+function toLayeredSlide(slide: Slide & { elements?: El[] }): Slide {
+    if (slide?.layers) {
+        return slide;
+    }
+
+    const background: El[] = [];
+    const atmosphere: El[] = [];
+    const content: El[] = [];
+    const ui: El[] = [];
+
+    for (const el of slide?.elements ?? []) {
+        if (el.type === "background") {
+            background.push(el);
+        } else if (
+            el.type === "backgroundImage"
+            || el.type === "noise"
+            || el.type === "gradientRect"
+            || el.type === "glow"
+        ) {
+            atmosphere.push(el);
+        } else if (el.type === "glassCard" || el.type === "image" || el.type === "path" || el.type === "text") {
+            content.push(el);
+        } else {
+            ui.push(el);
+        }
+    }
+
+    return {
+        ...slide,
+        layers: {
+            background,
+            atmosphere,
+            content,
+            ui,
+        },
+    };
+}
+
+export const Canvas = forwardRef<CanvasRef, CanvasProps>(({ carousel, slideIndex = 0, zoom = 0.56, onExportPNG }, ref) => {
     const stageRef = useRef<any>(null);
-    const activeSlide = carousel?.slides[slideIndex ?? 0] ?? null;
+    const clampedZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
+
+    const activeSlide = useMemo(() => {
+        const rawSlide = carousel?.slides[slideIndex] ?? null;
+        return rawSlide ? toLayeredSlide(rawSlide as Slide & { elements?: El[] }) : null;
+    }, [carousel, slideIndex]);
 
     useImperativeHandle(ref, () => ({
         exportPNG() {
             const uri = stageRef.current?.toDataURL({ pixelRatio: 2 });
-            if (!uri) return;
-
-            // Faz o download da imagem localmente
-            const a = document.createElement("a");
-            a.href = uri;
-            a.download = "export.png";
-            a.click();
-
-            // Manda o base64 para o pai (EditPage) caso ele queira fazer algo, como salvar no Firebase
-            if (onExportPNG) {
-                onExportPNG(uri);
+            if (!uri) {
+                return;
             }
-        }
-    }));
+
+            const link = document.createElement("a");
+            link.href = uri;
+            link.download = `slide-${slideIndex + 1}.png`;
+            link.click();
+
+            onExportPNG?.(uri);
+        },
+    }), [onExportPNG, slideIndex]);
 
     function renderLayerElements(els: El[]) {
         return els.map((el, i) => {
@@ -61,7 +122,9 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(({ carousel, slideIndex
             }
 
             if (el.type === "gradientRect") {
-                const stopsFlat = el.stops.flat();
+                const stopsFlat = Array.isArray((el.stops as any[])[0])
+                    ? (el.stops as Array<[number, string]>).flat()
+                    : (el.stops as Array<number | string>);
                 return (
                     <Rect
                         key={i}
@@ -151,22 +214,25 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(({ carousel, slideIndex
             }
 
             if (el.type === "text") {
-                const isHeading = (el.fontSize ?? 0) >= 72;
+                const fontSize = Math.max(18, el.fontSize ?? 32);
+                const isHeading = fontSize >= 56;
+                const lineHeight = Math.max(1.05, Math.min(1.55, el.lineHeight ?? (isHeading ? 1.12 : 1.3)));
+                const letterSpacing = Math.max(-1, Math.min(4, el.letterSpacing ?? (isHeading ? -0.1 : 0)));
                 return (
                     <Text
                         key={i}
                         x={el.x}
                         y={el.y}
                         text={el.text}
-                        fill={el.fill}
+                        fill={el.fill ?? "#111827"}
                         draggable={el.draggable ?? true}
-                        fontSize={el.fontSize ?? 32}
-                        fontFamily={el.fontFamily ?? "Inter"}
-                        fontStyle={el.fontStyle ?? (isHeading ? "600" : "500")}
-                        width={el.width}
+                        fontSize={fontSize}
+                        fontFamily={normalizeFontFamily(el.fontFamily)}
+                        fontStyle={normalizeFontStyle(el.fontStyle, isHeading)}
+                        width={el.width ?? 860}
                         align={el.align ?? "left"}
-                        lineHeight={el.lineHeight ?? (isHeading ? 1.06 : 1.25)}
-                        letterSpacing={el.letterSpacing ?? (isHeading ? -0.6 : -0.2)}
+                        lineHeight={lineHeight}
+                        letterSpacing={letterSpacing}
                         opacity={el.opacity ?? 1}
                         shadowColor={el.shadowColor}
                         shadowBlur={el.shadowBlur}
@@ -178,7 +244,6 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(({ carousel, slideIndex
                 );
             }
 
-
             if (el.type === "image") {
                 return <ImageElement key={i} el={el} />;
             }
@@ -187,16 +252,46 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(({ carousel, slideIndex
         });
     }
 
-
     function ImageElement({ el }: { el: Extract<El, { type: "image" | "backgroundImage" | "noise" }> }) {
-        const img = useKonvaImage(el.url);
+        const imageUrl = (el as any).url ?? (el as any).src;
+        const img = useKonvaImage(imageUrl);
+        const radius = (el as any).radius ?? (el as any).borderRadius ?? 0;
 
         if (!img) {
-            return <Rect x={el.x} y={el.y} width={el.width} height={el.height} fill="rgba(255,255,255,0.06)" listening={false} />;
+            const prompt = String((el as any).prompt ?? "").trim();
+            const promptLabel = prompt ? `Imagem IA\n${prompt}` : "Imagem pendente";
+            const labelWidth = Math.max(32, el.width - 40);
+
+            return (
+                <Group listening={false}>
+                    <Rect
+                        x={el.x}
+                        y={el.y}
+                        width={el.width}
+                        height={el.height}
+                        fill="rgba(247, 126, 88, 0.08)"
+                        stroke="rgba(247, 126, 88, 0.28)"
+                        strokeWidth={1}
+                        cornerRadius={radius}
+                        dash={[12, 8]}
+                    />
+                    <Text
+                        x={el.x + 20}
+                        y={el.y + 20}
+                        width={labelWidth}
+                        text={promptLabel}
+                        fill="rgba(17,24,39,0.75)"
+                        fontFamily="Manrope"
+                        fontStyle="normal"
+                        fontSize={16}
+                        lineHeight={1.35}
+                        letterSpacing={0}
+                    />
+                </Group>
+            );
         }
 
-        // cover/contain
-        const mode = (el as any).cover ?? "cover";
+        const mode = (el as any).cover ?? (el as any).fit ?? "cover";
         const iw = (img as any).naturalWidth || (img as any).width;
         const ih = (img as any).naturalHeight || (img as any).height;
 
@@ -211,8 +306,6 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(({ carousel, slideIndex
         const cropY = (drawH - el.height) / 2 / scale;
         const cropW = el.width / scale;
         const cropH = el.height / scale;
-
-        const radius = (el as any).radius ?? 0;
 
         return (
             <Image
@@ -236,45 +329,40 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(({ carousel, slideIndex
         );
     }
 
-    const previewScale = 0.5;
-    const previewW = DOC_W * previewScale;
-    const previewH = DOC_H * previewScale;
-
     return (
-        <div className="page-wrapper">
+        <div className="canvas-shell">
             <div
-                className="canvas-container"
-                style={{
-                    width: previewW,
-                    height: previewH,
-                }}
+                className="canvas-viewport"
+                style={{ width: DOC_W * clampedZoom, height: DOC_H * clampedZoom }}
             >
                 <Stage
                     ref={stageRef}
-                    width={previewW}
-                    height={previewH}
+                    width={DOC_W}
+                    height={DOC_H}
+                    style={{ transform: `scale(${clampedZoom})`, transformOrigin: "top left" }}
                 >
-                    <Layer scaleX={previewScale} scaleY={previewScale}>
+                    <Layer>
                         {renderLayerElements(activeSlide?.layers.background ?? [])}
                         {renderLayerElements(activeSlide?.layers.atmosphere ?? [])}
                         {renderLayerElements(activeSlide?.layers.content ?? [])}
                         {renderLayerElements(activeSlide?.layers.ui ?? [])}
+
+                        <Rect
+                            x={40}
+                            y={40}
+                            width={DOC_W - 80}
+                            height={DOC_H - 80}
+                            stroke="rgba(16, 24, 40, 0.08)"
+                            dash={[12, 10]}
+                            strokeWidth={2}
+                            listening={false}
+                        />
                     </Layer>
                 </Stage>
             </div>
-
-            {/* <button onClick={exportPNG}>Export PNG</button>
-            <button onClick={navigateToPrevSlide}>{"<"}</button>
-            <button onClick={navigateToNextSlide}>{">"}</button> */}
         </div>
     );
 });
-
-
-
-
-
-
 
 export function useKonvaImage(url?: string) {
     const [img, setImg] = useState<HTMLImageElement | null>(null);
@@ -286,14 +374,13 @@ export function useKonvaImage(url?: string) {
         }
 
         const image = new window.Image();
-        image.crossOrigin = "anonymous"; // importante p/ export (se o servidor permitir)
+        image.crossOrigin = "anonymous";
         image.src = url;
 
         image.onload = () => setImg(image);
         image.onerror = () => setImg(null);
 
         return () => {
-            // não dá pra "cancelar" load 100%, mas pelo menos solta referência
             setImg(null);
         };
     }, [url]);

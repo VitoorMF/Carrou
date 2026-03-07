@@ -8,7 +8,7 @@ const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 const corsHandler = cors({ origin: true });
 
 export const improvePrompt = onRequest(
-    { secrets: [OPENAI_API_KEY], region: "us-central1" },
+    { secrets: [OPENAI_API_KEY], region: "us-central1", invoker: "public" },
     (req, res) => {
         corsHandler(req, res, async () => {
             try {

@@ -1,0 +1,165 @@
+.plans_page {
+    min-height: 100vh;
+    padding: 24px;
+    background: #f3f4f6;
+}
+
+.plans_header {
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #fff;
+    padding: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+}
+
+.plans_kicker {
+    margin: 0;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.plans_header h1 {
+    margin: 6px 0 8px;
+    font-size: 30px;
+    line-height: 1.1;
+    color: #111827;
+}
+
+.plans_header p {
+    margin: 0;
+    color: #4b5563;
+    max-width: 600px;
+}
+
+.plans_back {
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    color: #111827;
+    font-weight: 600;
+    padding: 0 12px;
+    cursor: pointer;
+}
+
+.plans_grid {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.plan_card {
+    position: relative;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    padding: 16px;
+}
+
+.plan_card h2 {
+    margin: 0;
+    font-size: 20px;
+}
+
+.plan_price {
+    margin: 8px 0 0;
+    font-size: 28px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.plan_price span {
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+    margin-left: 4px;
+}
+
+.plan_tokens {
+    margin: 6px 0 12px;
+    color: #1f2937;
+    font-weight: 600;
+}
+
+.plan_card ul {
+    margin: 0;
+    padding-left: 18px;
+    color: #4b5563;
+    font-size: 13px;
+    display: grid;
+    gap: 6px;
+}
+
+.plan_card button {
+    margin-top: 14px;
+    height: 38px;
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.plan_card.principal {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+}
+
+.badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #1d4ed8;
+    background: #dbeafe;
+    border-radius: 999px;
+    padding: 4px 8px;
+}
+
+.recharge_section {
+    margin-top: 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #fff;
+    padding: 16px;
+}
+
+.recharge_head h3 {
+    margin: 0;
+    font-size: 20px;
+}
+
+.recharge_head p {
+    margin: 6px 0 0;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.recharge_list {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.recharge_item {
+    height: 54px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 12px;
+    cursor: pointer;
+}
+
+.recharge_item strong {
+    color: #111827;
+}

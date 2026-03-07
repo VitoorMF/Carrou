@@ -34,6 +34,8 @@ Regras:
 - Temas educativos pedem clareza e hierarquia forte.
 - Temas criativos, creator economy e marketing podem aceitar mais energia visual.
 - Se o tema pede confiança, reduza exageros visuais.
+- Para Instagram e conteúdo de atenção rápida, prefira "microblog_bold" ou "social_dynamic" em vez de "clean_modern".
+- Use "clean_modern" apenas quando o contexto exigir sobriedade explícita.
 - Não invente estilos inadequados.
 - Escolha a direção mais apropriada ao contexto do prompt.
 
@@ -64,20 +66,47 @@ Criar um carrossel coerente com o prompt do usuário e com a direção criativa 
 
 REGRAS GERAIS:
 - Documento sempre 1080x1350
-- 4 a 6 slides
+- Produza 5 slides por padrão
+- Nunca ultrapasse 6 slides, mesmo se o usuário pedir mais
 - IDs únicos por slide
 - Textos curtos, claros e com boa hierarquia
 - Evite excesso de elementos
+- Máximo de 8 elementos por slide (incluindo background)
 - CTA coerente com o nível de formalidade
 - O slide 1 deve ter hook forte
 - O último slide deve fechar com CTA
 - Não use elementos proibidos na lista "avoid"
+
+REGRAS VISUAIS OBRIGATÓRIAS:
+- Todo slide deve ter 1 elemento "background" cobrindo 1080x1350.
+- Todo slide deve ter pelo menos 2 elementos NÃO-texto além do background.
+- Use combinação de elementos visuais para dar profundidade: "gradientRect", "glow", "glassCard", "path", "image" ou "backgroundImage".
+- Não entregue slide só com background + textos.
+- Prefira composição limpa e elegante, com contraste e hierarquia.
+- Nunca use fontFamily genérica ("Arial", "Times", "Courier", "Helvetica"). Prefira "Poppins", "Sora", "Montserrat" ou "Manrope".
+- Varie a composição entre slides: use pelo menos 3 arranjos diferentes (ex.: split, card central, diagonal, bloco inferior).
+- Não repita todos os textos na mesma coordenada y; distribua o conteúdo com ritmo visual.
+- Use "fontStyle" apenas com: "normal", "bold", "italic" ou "bold italic". Nunca use "regular".
+- Headline principal entre 54 e 84 px, texto de apoio entre 30 e 44 px.
+- Evite paths minúsculos (ex.: quadrado 80x80). Se usar "path", ele deve ser decorativo e perceptível no layout.
+- Garanta margens de respiro (x entre 72 e 120 para textos principais).
+
+REGRAS DE TEXTO OBRIGATÓRIAS:
+- Cada slide deve conter no mínimo 2 elementos do tipo "text".
+- Estrutura mínima por slide: 1 headline + 1 texto de apoio.
+- Slides 2..N-1: headline curta + explicação prática (12 a 24 palavras) ou 2 bullets curtos.
+- Último slide: headline de CTA + subtexto orientando a próxima ação.
+- Não repetir a mesma frase com pequenas variações entre slides.
+- Evite headlines genéricas como "Descubra o poder...", "Tudo sobre...", "Veja agora...".
+- Prefira frases com tensão, contraste ou promessa concreta (sem clickbait vazio).
+- Traga exemplos reais e específicos quando o tema permitir.
 
 REGRAS DE IMAGEM:
 - Se image_strategy = "none", NÃO usar elementos type: "image"
 - Se image_strategy = "minimal", usar no máximo 1 imagem em todo o carrossel
 - Se image_strategy = "single_hero", usar no máximo 1 imagem por slide
 - Se image_strategy = "supportive", usar imagens apenas quando ajudarem a narrativa
+- Se image_strategy = "supportive" ou "single_hero", inclua pelo menos 2 elementos de imagem no carrossel ("image" ou "backgroundImage")
 
 ESTRUTURA RECOMENDADA:
 - slide 1 = hook / promessa / impacto
@@ -146,6 +175,54 @@ FORMATO DE SAÍDA:
         },
         {
           "id": string,
+          "type": "gradientRect",
+          "x": number,
+          "y": number,
+          "width": number,
+          "height": number,
+          "kind": "linear" | "radial",
+          "start": { "x": number, "y": number },
+          "end": { "x": number, "y": number },
+          "center": { "x": number, "y": number },
+          "radius": number,
+          "stops": [number, string, number, string],
+          "opacity": number
+        },
+        {
+          "id": string,
+          "type": "glow",
+          "x": number,
+          "y": number,
+          "r": number,
+          "color": string,
+          "blur": number,
+          "opacity": number
+        },
+        {
+          "id": string,
+          "type": "glassCard",
+          "x": number,
+          "y": number,
+          "width": number,
+          "height": number,
+          "radius": number,
+          "fill": string,
+          "stroke": string,
+          "strokeWidth": number,
+          "opacity": number
+        },
+        {
+          "id": string,
+          "type": "backgroundImage",
+          "x": number,
+          "y": number,
+          "width": number,
+          "height": number,
+          "prompt": string,
+          "opacity": number
+        },
+        {
+          "id": string,
           "type": "image",
           "x": number,
           "y": number,
@@ -162,7 +239,9 @@ FORMATO DE SAÍDA:
 
 IMPORTANTE:
 - Se usar "image", preencha SEMPRE "prompt"
+- Se usar "backgroundImage", preencha "prompt" (não usar URL final gerada)
 - Nunca use "src"
+- Evite textos longos: ideal de 6 a 14 palavras por bloco principal
 - Saída deve ser JSON puro
 `.trim();
 }

@@ -50,11 +50,15 @@ type El =
         y: number;
         width: number;
         height: number;
-        url: string;
+        url?: string;
+        src?: string;
+        prompt?: string;
         radius?: number;
+        borderRadius?: number;
         rotate?: number;
         opacity?: number;
         cover?: "cover" | "contain";
+        fit?: "cover" | "contain";
         draggable?: boolean;
         listening?: boolean;
 
@@ -76,7 +80,8 @@ type El =
         end?: Vec2;   // linear
         center?: Vec2; // radial
         radius?: number; // radial end radius
-        stops: Array<[number, string]>;
+        // Preferencial: [0, "#fff", 1, "#000"]. Também aceita legado [[0,"#fff"],[1,"#000"]].
+        stops: Array<number | string> | Array<[number, string]>;
         opacity?: number;
         listening?: boolean;
     }
@@ -115,6 +120,7 @@ type El =
         listening?: boolean;
     }
     | {
+        id?: string;
         type: "background";
         fill: string;
         x: number;
@@ -145,7 +151,23 @@ type Slide = {
     };
 };
 
-type Carousel = { meta: { theme: string; title: string }; slides: Slide[] };
+type Carousel = {
+    meta: {
+        title: string;
+        theme?: string;
+        style?: string;
+        objective?: string;
+        palette?: {
+            bg?: string;
+            text?: string;
+            muted?: string;
+            accent?: string;
+            accent2?: string;
+        };
+        [key: string]: unknown;
+    };
+    slides: Slide[];
+};
 
 
 export type { Vec2, El, Slide, Carousel };
