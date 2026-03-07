@@ -23,11 +23,11 @@ async function saveProjectToFirestore(carousel: Carousel) {
     if (!user) throw new Error("Usuário não autenticado.");
 
     let normalized;
-    if (carousel.meta.style === "editorial3D") {
+    if (carousel.meta.theme === "editorial3D") {
         normalized = editorial3D(carousel);
-    } if (carousel.meta.style === "luxuryMinimal") {
+    } if (carousel.meta.theme === "luxuryMinimal") {
         normalized = luxuryMinimal(carousel);
-    } if (carousel.meta.style === "microBlogBold") {
+    } if (carousel.meta.theme === "microBlogBold") {
         normalized = microblogBold(carousel);
     }
 
@@ -130,7 +130,7 @@ export default function CreatePage() {
                     format: formato ?? "dicas",
                     audience: publico ?? "iniciante",
                     cta: cta ?? "salvar",
-                    style: layout ?? "editorial3D",
+                    theme: layout ?? "editorial3D",
                     slideCount: 6,
                     language: "pt-BR",
                     title: "AI will choose the title",
@@ -144,7 +144,7 @@ export default function CreatePage() {
                 ...raw,
                 meta: {
                     ...raw.meta,
-                    style: payload.meta.style,
+                    theme: payload.meta.theme,
                     title: raw.meta.title ?? payload.meta.title ?? "Carrossel",
                 },
             };

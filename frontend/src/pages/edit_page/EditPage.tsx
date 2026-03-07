@@ -1,16 +1,13 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import "./EditPage.css";
 import { db } from "../../services/firebase";
 import { useParams } from "react-router-dom";
-import { SlideRenderer, type SlideElement } from "../../editor/SlideRenderer";
-// import { editorial3D } from "../../layouts/editorial3D";
-import type { Carousel } from "../../types/caroussel";
+import { type SlideElement } from "../../editor/SlideRenderer";
 import { applyAutoLayoutAsync } from "../../editor/autoLayout";
 import { router } from "../../router";
-import { editorial3D } from "../../layouts/editorial3D";
-import { luxuryMinimal } from "../../layouts/luxuryMinimal";
-import { microblogBold } from "../../layouts/microBlog";
+import { type Carousel } from "../../editor/canvas/types";
+import { Canvas, type CanvasRef } from "../../editor/canvas/Canvas";
 
 
 type Slide = {
@@ -20,79 +17,15 @@ type Slide = {
     background?: { type: "solid"; value: string };
 };
 
-function clamp(n: number, a: number, b: number) {
-    return Math.max(a, Math.min(b, n));
-}
-
-/**
- * Padrão de editor: documento fixo (docW/docH) + zoom automático pra caber no viewport.
- * - Mede o container
- * - Subtrai padding real do CSS
- * - Calcula scale
- * - Evita flicker (useLayoutEffect + cálculo imediato)
- */
-function useFitScale(
-    containerRef: React.RefObject<HTMLElement | null>,
-    docW: number,
-    docH: number,
-    maxScale = 1
-) {
-    const [scale, setScale] = useState<number | null>(null);
-
-    useLayoutEffect(() => {
-        const el = containerRef.current;
-        if (!el) return;
-
-        let raf = 0;
-
-        const compute = () => {
-            const rect = el.getBoundingClientRect();
-            const cs = getComputedStyle(el);
-            const padX =
-                (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
-            const padY =
-                (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
-
-            const SAFE = 8;
-
-            const availableW = Math.max(1, rect.width - padX - SAFE * 2);
-            const availableH = Math.max(1, rect.height - padY - SAFE * 2);
-
-            const next = clamp(Math.min(availableW / docW, availableH / docH), 0.1, maxScale);
-            setScale(next);
-        };
-
-        // calcula antes do primeiro paint
-        compute();
-
-        const ro = new ResizeObserver(() => {
-            cancelAnimationFrame(raf);
-            raf = requestAnimationFrame(compute);
-        });
-
-        ro.observe(el);
-
-        return () => {
-            cancelAnimationFrame(raf);
-            ro.disconnect();
-        };
-    }, [containerRef, docW, docH, maxScale]);
-
-    return scale;
-}
-
 export default function EditPage() {
     const { projectId } = useParams();
     const [project, setProject] = useState<any>(null);
     const [projectName, setProjectName] = useState<string>("");
-    // formato feed quadrado
-    const DOC_W = 1080;
-    const DOC_H = 1350;
-
 
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
-    const scale = useFitScale(canvasRef, DOC_W, DOC_H, 1); // maxScale=1 (nunca maior que o doc)
+
+    const [carouselData, setCarouselData] = useState<Carousel | null>(null);
 
 
     const [slides, setSlides] = useState<Slide[]>(() => [
@@ -104,6 +37,15 @@ export default function EditPage() {
     const activeSlide = useMemo(() => {
         return slides.find((s) => s.id === activeSlideId) ?? slides[0];
     }, [slides, activeSlideId]);
+
+    // 1. Crie uma ref específica para o componente Canvas
+    const canvasComponentRef = useRef<CanvasRef>(null);
+
+    // 2. Crie a função que o botão vai chamar
+    function handleSaveClick() {
+        // Chama a função exportPNG que está lá dentro do Canvas!
+        canvasComponentRef.current?.exportPNG();
+    }
 
 
     async function requestImageGeneration(projectId: string, slideId: string, elementId: string) {
@@ -171,31 +113,26 @@ export default function EditPage() {
 
 
     useEffect(() => {
-        console.log("projectId", projectId);
         if (!projectId) return;
-
         const ref = doc(db, "projects", projectId);
-
-
-        reapplyLayout();
 
         const unsub = onSnapshot(ref, async (snap) => {
             if (!snap.exists()) {
                 setProject(null);
+                setCarouselData(null);
                 return;
             }
 
             const data = snap.data();
-
             setProject(data);
             setProjectName(data?.meta?.title ?? "Projeto sem nome");
 
             const raw = projectDocToCarousel(data);
-            // const compiled = editorial3D(raw);
             const computed = await applyAutoLayoutAsync(raw);
 
-            const editorSlides = firestoreSlidesToEditorSlides(computed.slides);
+            setCarouselData(computed);
 
+            const editorSlides = firestoreSlidesToEditorSlides(computed.slides);
             setSlides(editorSlides);
 
             setActiveSlideId((prev) => {
@@ -209,20 +146,16 @@ export default function EditPage() {
         return () => unsub();
     }, [projectId]);
 
+
+    const activeSlideIndex = useMemo(() => {
+        const index = slides.findIndex(s => s.id === activeSlideId);
+        return index !== -1 ? index : 0;
+    }, [slides, activeSlideId]);
+
     async function reapplyLayout() {
         if (!project) return;
 
-        const raw = projectDocToCarousel(project);
-
         let compiled;
-        if (project?.meta?.style === "editorial3D") {
-            compiled = editorial3D(raw);
-        } if (project?.meta?.style === "luxuryMinimal") {
-            compiled = luxuryMinimal(raw);
-        } if (project?.meta?.style === "microBlogBold") {
-            compiled = microblogBold(raw);
-        }
-
 
         const computed = await applyAutoLayoutAsync(compiled); // roda o layout
         const editorSlides = firestoreSlidesToEditorSlides(computed.slides);
@@ -240,7 +173,6 @@ export default function EditPage() {
 
 
     function projectDocToCarousel(data: any): Carousel {
-        // Prefer persisted `slides` (updated by image generation etc). If not present, fall back to ai.raw.
         if (Array.isArray(data?.slides) && data.slides.length > 0) {
             return {
                 meta: data.meta,
@@ -278,25 +210,6 @@ export default function EditPage() {
 
     }
 
-    function addText() {
-        const id = crypto.randomUUID();
-        const el: SlideElement = {
-            id,
-            type: "text",
-            x: DOC_W / 2 - 80, // coloca mais “no meio” visualmente
-            y: DOC_H / 2 - 12,
-            content: "Novo Texto",
-        };
-
-        setSlides((prev) =>
-            prev.map((s) =>
-                s.id === activeSlideId ? { ...s, elements: [...s.elements, el] } : s
-            )
-        );
-        setSelectedElementId(id);
-    }
-
-
 
     return (
         <>
@@ -320,22 +233,21 @@ export default function EditPage() {
                 <aside className="left_bar">
 
                     <div className="slides_list">
-                        {slides.map((s) => (
-                            <button
-                                key={s.id}
-                                className={`slide_btn ${s.id === activeSlideId ? "active" : ""}`}
-                                onClick={() => {
-                                    setActiveSlideId(s.id);
-                                    setSelectedElementId(null);
-                                }}
-                                type="button"
-                            >
-                                {s.name}
-                            </button>
-                        ))}
-                        {/* <button className="primary_btn" onClick={createSlide} type="button">
-                            Novo Slide
-                        </button> */}
+                        <div className="slides">
+                            {slides.map((s) => (
+                                <button
+                                    key={s.id}
+                                    className={`slide_btn ${s.id === activeSlideId ? "active" : ""}`}
+                                    onClick={() => {
+                                        setActiveSlideId(s.id);
+                                        setSelectedElementId(null);
+                                    }}
+                                    type="button"
+                                >
+                                    {s.name}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     <div className="tools_card">
@@ -345,7 +257,7 @@ export default function EditPage() {
                             <button className="tool_btn" type="button" onClick={() => { console.log("Firestore host:", (db as any)._delegate?._settings?.host); }}>Demo</button>
                         </div>
 
-                        <button className="ghost_btn" onClick={addText} type="button">
+                        <button className="ghost_btn" onClick={() => { }} type="button">
                             Adicionar texto
                         </button>
                     </div>
@@ -359,45 +271,23 @@ export default function EditPage() {
 
                     <div className="actions_card">
                         <button className="ghost_btn" type="button" onClick={reapplyLayout}>redesenhar</button>
-                        <button className="primary_button" type="button">salvar</button>
+                        <button className="primary_button" type="button" onClick={handleSaveClick}>exportar</button>
                     </div>
                 </aside>
 
                 <main className="canvas_area" ref={canvasRef}>
-                    {scale === null ? null : (
-                        <div
-                            className="stage_wrap"
-                            style={{
-                                width: DOC_W * scale,
-                                height: DOC_H * scale,
-                            }}
-                        >
-                            {/* O stage real fica ABSOLUTO e não empurra layout */}
-                            <div
-                                className="stage"
-                                style={{
-                                    width: DOC_W,
-                                    height: DOC_H,
-                                    transform: `scale(${scale})`,
-                                    transformOrigin: "top left",
-                                    background: (() => {
-                                        const bg =
-                                            activeSlide?.background ?? (activeSlide as any)?.canvas?.background ?? { type: "solid", value: "#FFFFFF" };
-                                        return bg?.type === "solid" ? bg.value : "#FFFFFF";
-                                    })(),
-                                }}
-                                onMouseDown={() => setSelectedElementId(null)}
-                            >
-
-                                <SlideRenderer
-                                    slide={activeSlide}
-                                    selectedElementId={selectedElementId}
-                                    onSelectElement={setSelectedElementId}
-                                />
-
-                            </div>
-                        </div>
-                    )}
+                    <Canvas
+                        ref={canvasComponentRef}
+                        carousel={carouselData}
+                        slideIndex={activeSlideIndex}
+                        onExportPNG={(base64Uri: any) => {
+                            console.log("Imagem exportada com sucesso!", base64Uri);
+                            // Aqui o pai (EditPage) tem acesso à imagem! Você pode, por exemplo, abrir em uma nova aba:
+                            const newWindow = window.open();
+                            if (newWindow) {
+                                newWindow.document.write(`<img src="${base64Uri}" alt="Exported Image"/>`);
+                            }
+                        }} />
                 </main>
 
                 <aside className="right_bar">

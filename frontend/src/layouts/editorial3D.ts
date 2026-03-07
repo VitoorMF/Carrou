@@ -384,7 +384,7 @@ function compileCTA(slide: any, theme: Theme) {
 }
 
 export function editorial3D(input: Carousel): Carousel {
-    const theme = pickTheme(input?.meta?.style ?? "clean");
+    const theme = pickTheme(input?.meta?.theme ?? "clean");
 
     const next: Carousel = {
         ...input,

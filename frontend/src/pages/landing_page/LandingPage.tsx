@@ -2,7 +2,95 @@ import { useNavigate } from "react-router-dom";
 import "./LandingPage.css";
 
 import logo from "../../assets/page/landing/logo.svg";
-import menu from "../../assets/page/landing/menu.svg";
+import { useEffect, useState } from "react";
+
+type TypewriterOptions = {
+    words: string[];
+    baseSpeed?: number;
+    deleteSpeed?: number;
+    pauseMs?: number;
+    loop?: boolean;
+};
+
+export function useTypewriter({
+    words,
+    baseSpeed = 80,
+    deleteSpeed = 40,
+    pauseMs = 2000,
+    loop = true,
+}: TypewriterOptions) {
+    const [wordIndex, setWordIndex] = useState(0);
+    const [text, setText] = useState("");
+    const [phase, setPhase] = useState<"typing" | "pause" | "deleting">("typing");
+
+    useEffect(() => {
+        const word = words[wordIndex];
+        let delay = baseSpeed;
+
+        if (phase === "typing") {
+            delay = baseSpeed + Math.random() * 40;
+
+            if (text === word) {
+                delay = pauseMs;
+                setPhase("pause");
+            } else {
+                const timer = setTimeout(() => {
+                    setText(word.slice(0, text.length + 1));
+                }, delay);
+
+                return () => clearTimeout(timer);
+            }
+        }
+
+        if (phase === "pause") {
+            const timer = setTimeout(() => {
+                setPhase("deleting");
+            }, pauseMs);
+
+            return () => clearTimeout(timer);
+        }
+
+        if (phase === "deleting") {
+            delay = deleteSpeed;
+
+            if (text === "") {
+                const next = (wordIndex + 1) % words.length;
+
+                if (!loop && wordIndex === words.length - 1) return;
+
+                setWordIndex(next);
+                setPhase("typing");
+            } else {
+                const timer = setTimeout(() => {
+                    setText(word.slice(0, text.length - 1));
+                }, delay);
+
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [text, phase, wordIndex, words, baseSpeed, deleteSpeed, pauseMs, loop]);
+
+    return text;
+}
+
+export default function HeroTitle() {
+    const typed = useTypewriter({
+        words: [
+            "carrossel",
+            "post viral e",
+            "conteúdo de valor",
+            "roteiro de vendas",
+        ],
+    });
+
+    return (
+        <div className="lp_hero_text">
+            <h1 className="lp_title">
+                Crie seu primeiro <span className="highlight">{typed}</span> profissional em segundos
+            </h1>
+        </div>
+    );
+}
 
 export function LandingPage() {
     const navigate = useNavigate();
@@ -14,55 +102,24 @@ export function LandingPage() {
                     <img src={logo} alt="Carrosselize" />
                 </div>
 
-                <div className="lp_menu">
+                {/* <div className="lp_menu">
                     <img src={menu} alt="Menu" />
-                </div>
+                </div> */}
             </header>
 
             <main className="lp_main">
                 {/* HERO */}
                 <section className="lp_hero">
-                    <div className="lp_container lp_hero_grid">
-                        <div className="lp_hero_text">
-                            <div className="lp_badge">⚡ Gere carrosséis em 30s</div>
+                    <HeroTitle />
 
-                            <h1 className="lp_title">
-                                Transforme texto em <span>carrosséis profissionais</span> em segundos
-                            </h1>
+                    <textarea className="prompt_input" name="content" id="content" placeholder="5 erros que iniciantes cometem na academia..." />
 
-                            <p className="lp_subtitle">
-                                100% automático. Zero Canva. Zero designer. Só cole o texto e publique.
-                            </p>
+                    <button className="btn btn_primary">Começar Agora</button>
 
-                            <div className="lp_cta_row">
-                                <button className="btn btn_primary" onClick={() => navigate("/auth")}>
-                                    Começar agora
-                                </button>
-                                <button className="btn btn_ghost" onClick={() => document.getElementById("como")?.scrollIntoView({ behavior: "smooth" })}>
-                                    Ver como funciona
-                                </button>
-                            </div>
+                    <button className="btn btn_help">
+                        ?
+                    </button>
 
-                            <div className="lp_socialproof">
-                                <div className="sp_item">
-                                    <div className="sp_kpi">+120</div>
-                                    <div className="sp_label">templates</div>
-                                </div>
-                                <div className="sp_item">
-                                    <div className="sp_kpi">1 clique</div>
-                                    <div className="sp_label">para exportar</div>
-                                </div>
-                                <div className="sp_item">
-                                    <div className="sp_kpi">1080×1350</div>
-                                    <div className="sp_label">padrão feed</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="lp_sideblock">
-
-                        </div>
-
-                    </div>
                 </section>
 
                 {/* preview */}

@@ -4,7 +4,7 @@ export type Carousel = {
     format: string;
     audience: string;
     cta: string;
-    style: string;
+    theme: string;
     language: string;
     slideCount: number;
     title: string; // obrigatório
@@ -31,7 +31,7 @@ export type GenerateCarouselPayload = {
     format: string;
     audience: string;
     cta: string;
-    style: string;
+    theme: string;
     language: string;
     slideCount: number;
     title: string;

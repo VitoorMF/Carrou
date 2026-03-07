@@ -301,7 +301,7 @@ export function SlideRenderer({ slide, selectedElementId, onSelectElement }: Pro
                 // dentro do map do SlideRenderer, add antes do return null:
 
                 if (el.type === "image") {
-                    const fit = el.fit ?? "cover";
+                    const fit = el.cover ?? "cover";
                     const opacity = el.opacity ?? 1;
                     const radius = el.radius ?? 0;
                     const rotate = el.rotate ?? 0;

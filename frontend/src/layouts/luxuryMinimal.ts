@@ -4,6 +4,7 @@ import type { Carousel } from "../types/caroussel";
 type Theme = {
     bg: string;
     text: string;
+    text2: string;
     muted: string;
     accent: string;
     accent2: string;
@@ -12,11 +13,12 @@ type Theme = {
 function pickTheme(seed = "luxury"): Theme {
     const themes: Theme[] = [
         {
-            bg: "#F5F1ED",     // bege editorial
+            bg: "#2E2A28",     // bege editorial
             text: "#2E2A28",   // marrom quase preto
-            muted: "#8B817A",  // taupe suave
+            text2: "#F5F1ED",  // bege claro para variações de texto
+            muted: "#4a4440ff",  // taupe suave
             accent: "#B89C8A", // bege mais escuro
-            accent2: "#6E5E55" // marrom profundo
+            accent2: "#fd5d00ff" // laranja profundo
         },
     ];
     return themes[0];
@@ -43,20 +45,52 @@ function ensureImage(slide: any, theme: Theme) {
     const img = findImageEl(slide);
 
     const basePrompt = slide.headline
-        ? `3D cartoon-style object representing ${slide.headline},
-            modern 3D illustration,
-            smooth rounded shapes,
-            realistic but stylized materials,
-            true-to-life object colors,
-            medium saturation,
-            vivid but balanced color palette,
-            neutral studio lighting (not soft editorial),
-            clean but colorful,
-            no text,
-            transparent background,
-            avoid white-only objects,
-            avoid beige and pastel tones,
-            avoid washed-out or muted colors
+        ? ` ESTILO VISUAL DAS IMAGENS(FOTOGRÁFICO EDITORIAL / LIFESTYLE):
+
+        As imagens devem ser fotografias realistas(não 3D, não ilustração),
+    com estética editorial moderna, estilo capa de revista ou Instagram premium.
+
+        Características obrigatórias:
+
+- Fotografia realista(real photo, not illustration)
+    - Pessoas reais em situações naturais(lifestyle scenes)
+        - Luz natural ou luz suave de ambiente
+            - Atmosfera cinematográfica e levemente dramática
+                - Cores realistas e levemente desaturadas
+                    - Contraste suave
+                        - Pode haver fundo desfocado(shallow depth of field)
+                            - Mood emocional e autêntico
+
+Composição:
+
+- Enquadramento vertical(Instagram 4: 5)
+    - Espaço negativo suficiente para inserção de texto
+        - Sujeito principal deslocado para um lado(regra dos terços)
+            - A imagem pode ocupar todo o fundo do slide
+
+        Prompt deve conter obrigatoriamente:
+
+- "realistic editorial photography"
+    - "natural lighting"
+    - "cinematic mood"
+    - "high resolution"
+    - "vertical composition 4:5"
+    - "space for text"
+    - "no text overlay"
+
+        Proibir explicitamente:
+
+- no illustration
+    - no 3D render
+        - no cartoon
+            - no graphic design elements
+                - no typography
+                    - no UI elements
+                        - no icons
+
+        Template obrigatório do prompt:
+
+    "Realistic editorial photography of ${slide.headline}, natural lighting, cinematic mood, high resolution, vertical composition 4:5, space for text, shallow depth of field, realistic colors, slightly desaturated tones, no text overlay, no illustration, no 3D render, no cartoon, no graphic design elements"
             `
         : "";
 
@@ -97,13 +131,13 @@ function ensureProfileCard(slide: any, theme: Theme) {
             type: "profileCard",
             kind: "generated",
             variant: "neutral",
-            x: 30,
+            x: 76,
             y: 1350 - 112, // margem
             w: 350,
             h: 92,
             user: author,
             accent: "#ffffff05", // sem accent pra cover
-            text: theme.accent2,
+            text: theme.muted,
             opacity: 1,
             selectable: true,
             draggable: true,
@@ -247,8 +281,9 @@ function compileContent(slide: any, theme: Theme, index: number) {
     ensureCanvas(slide, theme);
     const els = slide.canvas.elements;
 
-    ensureProfileCard(slide, theme);
-
+    if (index % 2 === 0) {
+        ensureProfileCard(slide, theme);
+    }
     // número minimalista
     push(els, {
         id: "index",
@@ -293,6 +328,18 @@ function compileContent(slide: any, theme: Theme, index: number) {
         align: "left",
         color: theme.muted,
     });
+
+    // const img = ensureImage(slide, theme);
+    // Object.assign(img, {
+    //     x: 0,
+    //     y: 0,
+    //     w: 1080,
+    //     h: 1350,
+    //     fit: "contain",
+    //     bg: "transparent",
+    //     opacity: 1,
+    //     kind: "complement",
+    // });
 }
 
 function compileCTA(slide: any, theme: Theme) {
@@ -300,6 +347,20 @@ function compileCTA(slide: any, theme: Theme) {
     const els = slide.canvas.elements;
 
     ensureProfileCard(slide, theme);
+
+    push(els, {
+        id: "index",
+        type: "text",
+        x: 96,
+        y: 10,
+        w: 880,
+        text: ".........",
+        fontSize: 172,
+        fontWeight: 600,
+        fontFamily: "Playfair Display",
+        align: "left",
+        color: theme.text2,
+    });
 
     push(els, {
         id: "headline",
@@ -312,7 +373,7 @@ function compileCTA(slide: any, theme: Theme) {
         fontWeight: 600,
         fontFamily: "Playfair Display",
         align: "left",
-        color: theme.text,
+        color: theme.text2,
     });
 
     push(els, {
@@ -326,7 +387,7 @@ function compileCTA(slide: any, theme: Theme) {
         lineHeight: 1.5,
         fontWeight: 400,
         align: "left",
-        color: theme.muted,
+        color: theme.text2,
     });
 
     // CTA sublinhado elegante
@@ -338,7 +399,7 @@ function compileCTA(slide: any, theme: Theme) {
         w: 500,
         text: "Salve este post para rever depois",
         fontSize: 28,
-        fontWeight: 500,
+        fontWeight: 800,
         align: "left",
         color: theme.accent2,
         underline: true,
@@ -346,7 +407,7 @@ function compileCTA(slide: any, theme: Theme) {
 }
 
 export function luxuryMinimal(input: Carousel): Carousel {
-    const theme = pickTheme(input?.meta?.style ?? "clean");
+    const theme = pickTheme(input?.meta?.theme ?? "luxuryMinimal");
 
     const next: Carousel = {
         ...input,
