@@ -7,9 +7,9 @@ import { initializeApp, getApps } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import cors from "cors";
 
-import { generateCarouselJson, resolveGenerationContext } from "./ai/generator";
+import { planCreativeDirection } from "./ai/planner";
+import { generateCarouselJson } from "./ai/generator";
 import { normalizeCarousel } from "./ai/normalize";
-import { findTemplateById, getDefaultTemplate } from "./ai/templateCatalog";
 
 const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 const corsHandler = cors({ origin: true });
@@ -55,8 +55,6 @@ function stripUndefinedDeep<T>(value: T): T {
 
 type GenerateCarouselPayload = {
     prompt: string;
-    templateId?: string;
-    theme?: string;
 };
 
 type AnyEl = {
@@ -89,6 +87,31 @@ function toLayeredSlide(slide: FlatSlide): LayeredSlide {
     for (const el of slide.elements ?? []) {
         if (el.type === "background") {
             background.push(el);
+            continue;
+        }
+
+        if (
+            el.type === "backgroundImage"
+            || el.type === "noise"
+            || el.type === "gradientRect"
+            || el.type === "glow"
+        ) {
+            atmosphere.push(el);
+            continue;
+        }
+
+        if (el.type === "glassCard") {
+            content.push(el);
+            continue;
+        }
+
+        if (el.type === "image") {
+            content.push(el);
+            continue;
+        }
+
+        if (el.type === "text" || el.type === "path") {
+            content.push(el);
             continue;
         }
 
@@ -129,9 +152,10 @@ export const generateCarousel = onRequest(
             }
 
             const data = req.body as GenerateCarouselPayload | undefined;
+            logger.info("request.data", { data });
+
             const prompt = data?.prompt?.trim();
-            const selectedTemplate = findTemplateById(data?.templateId);
-            const requestedTheme = data?.theme?.trim() || "";
+            logger.info("prompt resolvido", { prompt });
 
             if (!prompt) {
                 res.status(400).json({ ok: false, error: "O campo 'prompt' é obrigatório." });
@@ -156,21 +180,41 @@ export const generateCarousel = onRequest(
                 return;
             }
 
+            logger.info("auth", { uid: uid ?? null });
+
             try {
+                const t0 = Date.now();
+
                 const openai = new OpenAI({
                     apiKey: OPENAI_API_KEY.value(),
                 });
+                logger.info("OpenAI client criado");
 
-                const generationContext = resolveGenerationContext(prompt, selectedTemplate?.id);
-                const activeTemplate = selectedTemplate ?? generationContext.activeTemplate ?? getDefaultTemplate();
-                const resolvedTheme = requestedTheme || activeTemplate.defaultTheme;
+                let creativeDirection;
+                try {
+                    creativeDirection = await planCreativeDirection({
+                        openai,
+                        userPrompt: prompt,
+                        model: "gpt-4o-mini",
+                    });
+                } catch (error: any) {
+                    const detail = extractProviderErrorMessage(error);
+                    logger.error("planner falhou", { detail, raw: error });
+                    throw new Error(`Falha no planner: ${detail}`);
+                }
+                logger.info("planner concluído", {
+                    ms: Date.now() - t0,
+                    creativeDirection,
+                });
+
+                const t1 = Date.now();
 
                 let rawCarousel;
                 try {
                     rawCarousel = await generateCarouselJson({
                         openai,
                         userPrompt: prompt,
-                        templateId: activeTemplate.id,
+                        creativeDirection,
                         model: "gpt-4o-mini",
                     });
                 } catch (error: any) {
@@ -178,12 +222,12 @@ export const generateCarousel = onRequest(
                     logger.error("generator falhou", { detail, raw: error });
                     throw new Error(`Falha no generator: ${detail}`);
                 }
-
-                const normalizedCarousel = normalizeCarousel(rawCarousel, {
-                    templateId: activeTemplate.id,
-                    theme: resolvedTheme,
-                    userPrompt: prompt,
+                logger.info("generator concluído", {
+                    ms: Date.now() - t1,
+                    slideCount: rawCarousel.slides?.length ?? null,
                 });
+
+                const normalizedCarousel = normalizeCarousel(rawCarousel, creativeDirection);
 
                 const editorCarousel = {
                     ...normalizedCarousel,
@@ -192,27 +236,31 @@ export const generateCarousel = onRequest(
 
                 const safeNormalizedCarousel = stripUndefinedDeep(normalizedCarousel);
                 const safeEditorSlides = stripUndefinedDeep(editorCarousel.slides);
-                const safeMeta = stripUndefinedDeep({
-                    ...editorCarousel.meta,
-                    templateId: activeTemplate.id,
-                    theme: resolvedTheme,
+                const safeMeta = stripUndefinedDeep(editorCarousel.meta);
+
+                logger.info("normalize concluído", {
+                    slideCount: editorCarousel.slides.length,
+                    title: editorCarousel.meta?.title ?? null,
                 });
+
+                logger.info("antes do firestore.add");
 
                 const docRef = await db.collection("projects").add({
                     ownerId: uid,
                     status: "ready",
                     meta: safeMeta,
                     ai: {
-                        generator: "generateCarousel:simple-v1",
+                        generator: "generateCarousel:v2",
                         prompt,
-                        templateId: activeTemplate.id,
-                        theme: resolvedTheme,
+                        creativeDirection,
                         normalized: safeNormalizedCarousel,
                     },
                     slides: safeEditorSlides,
                     createdAt: FieldValue.serverTimestamp(),
                     updatedAt: FieldValue.serverTimestamp(),
                 });
+
+                logger.info("firestore.add concluído", { projectId: docRef.id });
 
                 res.status(200).json({
                     ok: true,

@@ -1,7 +1,7 @@
+// functions/src/ai/generator.ts
 import OpenAI from "openai";
 import { buildCarouselGeneratorPrompt } from "./prompts";
-import { carouselSchema, type Carousel } from "./schemas";
-import { findTemplateById, getDefaultTemplate, resolveTemplateFromPrompt } from "./templateCatalog";
+import { carouselSchema, type Carousel, type CreativeDirection } from "./schemas";
 
 function extractJson(text: string): string {
     const trimmed = text.trim();
@@ -20,53 +20,76 @@ function extractJson(text: string): string {
     return trimmed.slice(first, last + 1);
 }
 
-export function resolveGenerationContext(userPrompt: string, templateId?: string | null) {
-    const selectedTemplate = findTemplateById(templateId);
-    const activeTemplate = selectedTemplate ?? resolveTemplateFromPrompt(userPrompt) ?? getDefaultTemplate();
+export function getThemeRules(visualStyle: CreativeDirection["visual_style"]) {
+    switch (visualStyle) {
+        case "editorial_minimal":
+            return `
+- visual sóbrio
+- poucos adornos
+- tipografia forte
+- bastante respiro
+- bom para jurídico, saúde, finanças e consultoria
+- evitar exagero visual
+      `.trim();
 
-    const normalizedPrompt = userPrompt.toLowerCase();
-    const tone = /advogado|jur[ií]dico|contador|contabilidade|imposto|m[eé]dico|sa[uú]de|cl[ií]nica/.test(normalizedPrompt)
-        ? "profissional"
-        : /personal|academia|fitness|treino|instagram|marketing|creator/.test(normalizedPrompt)
-            ? "dinâmico"
-            : "didático";
+        case "luxury_minimal":
+            return `
+- composição premium
+- menos informação por slide
+- bastante respiro
+- aparência sofisticada
+- bom para alto padrão, estética, arquitetura
+      `.trim();
 
-    const objective = /vender|clientes|agenda|consulta|leads/.test(normalizedPrompt)
-        ? "captar clientes"
-        : "educar";
+        case "microblog_bold":
+            return `
+- foco em texto
+- contraste maior
+- visual de conteúdo educativo
+- bom para posts didáticos, listas e passo a passo
+      `.trim();
 
-    return {
-        activeTemplate,
-        tone,
-        objective,
-    };
+        case "social_dynamic":
+            return `
+- mais energia visual
+- composições mais chamativas
+- bom para creator economy, marketing e conteúdo social
+      `.trim();
+
+        case "clean_modern":
+        default:
+            return `
+- moderno e limpo
+- equilíbrio entre clareza e estilo
+- composição flexível
+      `.trim();
+    }
 }
 
 export async function generateCarouselJson(params: {
     openai: OpenAI;
     userPrompt: string;
-    templateId?: string | null;
+    creativeDirection: CreativeDirection;
     model?: string;
 }): Promise<Carousel> {
     const {
         openai,
         userPrompt,
-        templateId,
+        creativeDirection,
         model = "gpt-4o-mini",
     } = params;
 
-    const context = resolveGenerationContext(userPrompt, templateId);
+    const themeRules = getThemeRules(creativeDirection.visual_style);
 
     const response = await openai.responses.create({
         model,
         input: buildCarouselGeneratorPrompt({
             userPrompt,
-            templateLabel: context.activeTemplate.label,
-            tone: context.tone,
-            objective: context.objective,
+            creativeDirection,
+            themeRules,
         }),
-        temperature: 0.35,
-        max_output_tokens: 2600,
+        temperature: 0.5,
+        max_output_tokens: 3200,
     });
 
     const raw = response.output_text;
