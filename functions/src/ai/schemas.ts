@@ -1,4 +1,3 @@
-// functions/src/ai/schemas.ts
 import { z } from "zod";
 
 export const creativeDirectionSchema = z.object({
@@ -38,10 +37,34 @@ export const creativeDirectionSchema = z.object({
 
 export type CreativeDirection = z.infer<typeof creativeDirectionSchema>;
 
-/**
- * Esse schema é um EXEMPLO mínimo para o carrossel final.
- * Ajuste para bater 100% com o teu tipo real.
- */
+export const carouselDraftMetaSchema = z.object({
+    title: z.string().min(1),
+    objective: z.string().min(1).default("engajar"),
+    style: z.string().min(1).default("template-driven"),
+});
+
+export const carouselDraftSlideSchema = z.object({
+    id: z.string(),
+    role: z.enum(["cover", "content", "cta"]),
+    headline: z.string().min(1),
+    body: z.string().default(""),
+    bullets: z.array(z.string()).max(6).default([]),
+    footer: z.string().optional(),
+    imagePrompt: z.string().optional(),
+    notes: z.string().optional(),
+    design: z.object({
+        layout: z.enum(["center", "left", "split"]).optional(),
+        emphasis: z.array(z.string()).optional(),
+    }).optional(),
+});
+
+export const carouselDraftSchema = z.object({
+    meta: carouselDraftMetaSchema,
+    slides: z.array(carouselDraftSlideSchema).min(4).max(8),
+});
+
+export type CarouselDraft = z.infer<typeof carouselDraftSchema>;
+
 export const carouselMetaSchema = z.object({
     title: z.string().min(1),
     objective: z.string().min(1).default("engajar"),
@@ -85,10 +108,7 @@ export const rectElementSchema = z.object({
     opacity: z.number().optional(),
 });
 
-const vec2Schema = z.object({
-    x: z.number(),
-    y: z.number(),
-});
+const vec2Schema = z.object({ x: z.number(), y: z.number() });
 
 export const pathElementSchema = z.object({
     id: z.string(),
@@ -130,7 +150,6 @@ export const gradientRectElementSchema = z.object({
     end: vec2Schema.optional(),
     center: vec2Schema.optional(),
     radius: z.number().optional(),
-    // Firestore não aceita array aninhado; aceitamos legado em pares e formato novo flat.
     stops: z.union([
         z.array(z.tuple([z.number().min(0).max(1), z.string()])).min(2).max(6),
         z.array(z.union([z.number().min(0).max(1), z.string()]))
@@ -167,13 +186,7 @@ export const glassCardElementSchema = z.object({
     stroke: z.string().optional(),
     strokeWidth: z.number().optional(),
     opacity: z.number().optional(),
-    shadow: z
-        .object({
-            blur: z.number(),
-            y: z.number(),
-            opacity: z.number(),
-        })
-        .optional(),
+    shadow: z.object({ blur: z.number(), y: z.number(), opacity: z.number() }).optional(),
 });
 
 export const backgroundImageElementSchema = z.object({

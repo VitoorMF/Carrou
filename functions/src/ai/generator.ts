@@ -1,7 +1,6 @@
-// functions/src/ai/generator.ts
 import OpenAI from "openai";
 import { buildCarouselGeneratorPrompt } from "./prompts";
-import { carouselSchema, type Carousel, type CreativeDirection } from "./schemas";
+import { carouselDraftSchema, type CarouselDraft, type CreativeDirection } from "./schemas";
 
 function extractJson(text: string): string {
     const trimmed = text.trim();
@@ -23,46 +22,16 @@ function extractJson(text: string): string {
 export function getThemeRules(visualStyle: CreativeDirection["visual_style"]) {
     switch (visualStyle) {
         case "editorial_minimal":
-            return `
-- visual sóbrio
-- poucos adornos
-- tipografia forte
-- bastante respiro
-- bom para jurídico, saúde, finanças e consultoria
-- evitar exagero visual
-      `.trim();
-
+            return `visual sóbrio, pouco ruído, autoridade e clareza`;
         case "luxury_minimal":
-            return `
-- composição premium
-- menos informação por slide
-- bastante respiro
-- aparência sofisticada
-- bom para alto padrão, estética, arquitetura
-      `.trim();
-
+            return `premium, sofisticado, poucas palavras por slide, bastante respiro`;
         case "microblog_bold":
-            return `
-- foco em texto
-- contraste maior
-- visual de conteúdo educativo
-- bom para posts didáticos, listas e passo a passo
-      `.trim();
-
+            return `conteúdo educativo, forte em texto, ritmo direto`;
         case "social_dynamic":
-            return `
-- mais energia visual
-- composições mais chamativas
-- bom para creator economy, marketing e conteúdo social
-      `.trim();
-
+            return `mais energia, chamativo, linguagem mais viva`;
         case "clean_modern":
         default:
-            return `
-- moderno e limpo
-- equilíbrio entre clareza e estilo
-- composição flexível
-      `.trim();
+            return `moderno, limpo, equilibrado e claro`;
     }
 }
 
@@ -71,7 +40,7 @@ export async function generateCarouselJson(params: {
     userPrompt: string;
     creativeDirection: CreativeDirection;
     model?: string;
-}): Promise<Carousel> {
+}): Promise<CarouselDraft> {
     const {
         openai,
         userPrompt,
@@ -88,13 +57,13 @@ export async function generateCarouselJson(params: {
             creativeDirection,
             themeRules,
         }),
-        temperature: 0.5,
-        max_output_tokens: 3200,
+        temperature: 0.45,
+        max_output_tokens: 2600,
     });
 
     const raw = response.output_text;
     const jsonText = extractJson(raw);
     const parsed = JSON.parse(jsonText);
 
-    return carouselSchema.parse(parsed);
+    return carouselDraftSchema.parse(parsed);
 }

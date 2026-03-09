@@ -55,6 +55,8 @@ function stripUndefinedDeep<T>(value: T): T {
 
 type GenerateCarouselPayload = {
     prompt: string;
+    templateId?: string;
+    theme?: string;
 };
 
 type AnyEl = {
@@ -155,7 +157,9 @@ export const generateCarousel = onRequest(
             logger.info("request.data", { data });
 
             const prompt = data?.prompt?.trim();
-            logger.info("prompt resolvido", { prompt });
+            const templateId = data?.templateId?.trim();
+            const theme = data?.theme?.trim();
+            logger.info("prompt resolvido", { prompt, templateId, theme });
 
             if (!prompt) {
                 res.status(400).json({ ok: false, error: "O campo 'prompt' é obrigatório." });
@@ -227,7 +231,10 @@ export const generateCarousel = onRequest(
                     slideCount: rawCarousel.slides?.length ?? null,
                 });
 
-                const normalizedCarousel = normalizeCarousel(rawCarousel, creativeDirection);
+                const normalizedCarousel = normalizeCarousel(rawCarousel, creativeDirection, {
+                    templateId,
+                    theme,
+                });
 
                 const editorCarousel = {
                     ...normalizedCarousel,
@@ -250,9 +257,12 @@ export const generateCarousel = onRequest(
                     status: "ready",
                     meta: safeMeta,
                     ai: {
-                        generator: "generateCarousel:v2",
+                        generator: "generateCarousel:semantic-v1",
                         prompt,
+                        templateId: templateId ?? null,
+                        theme: theme ?? null,
                         creativeDirection,
+                        raw: stripUndefinedDeep(rawCarousel),
                         normalized: safeNormalizedCarousel,
                     },
                     slides: safeEditorSlides,
