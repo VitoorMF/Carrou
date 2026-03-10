@@ -1,11 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./CreatePage.css";
-import { auth } from "../../services/firebase";
+import { auth, db } from "../../services/firebase";
 import { useNavigate } from "react-router-dom";
 import { generateCarousel } from "../../services/functions";
 import { signInAnonymously } from "firebase/auth";
 import { AppSidebar } from "../../components/app_sidebar/AppSidebar";
 import { useAuth } from "../../lib/hooks/useAuth";
+import { onSnapshot, doc } from "firebase/firestore";
+import {
+    DEFAULT_TEMPLATE_ID,
+    TEMPLATE_CATALOG,
+    findTemplateById,
+    type TemplateId,
+} from "../../templates/templateCatalog";
+
+
+type UserData = {
+    avatarUrl?: string;
+    displayName?: string;
+    tokensBalance?: number;
+};
 
 const USE_FIREBASE_EMULATORS = import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true";
 const IMPROVE_PROMPT_ENDPOINT = USE_FIREBASE_EMULATORS
@@ -28,32 +42,37 @@ export default function CreatePage() {
     const { user } = useAuth();
     const [prompt, setPrompt] = useState("");
 
-    const [formato, setFormato] = useState<string | null>(null);
-    const [active, setActive] = useState<string | null>(null);
-    const [publico, setPublico] = useState<string | null>(null);
-    const [cta, setCta] = useState<string | null>(null);
-    const [layout, setLayout] = useState<string | null>(null);
+    const [layout, setLayout] = useState<TemplateId | null>(null);
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
     const navigate = useNavigate();
     const [optimizing, setOptimizing] = useState(false);
-    const [advancedSettingsVisible, setAdvancedSettingsVisible] = useState(false);
+    const [userData, setUserData] = useState<UserData | null>(null);
+
+    const selectedLayout = findTemplateById(layout);
 
 
-    const selectedObjective = objetivos.find(o => o.id === active);
-    const selectedFormat = formatos.find(f => f.id === formato);
-    const selectedAudience = publicos.find(p => p.id === publico);
-    const selectedCta = ctas.find(c => c.id === cta);
-    const selectedTheme = theme.find(t => t.id === layout);
 
-    const hasAnySelection =
-        selectedObjective ||
-        selectedFormat ||
-        selectedAudience ||
-        selectedCta ||
-        selectedTheme;
+    useEffect(() => {
+        if (!user) {
+            setUserData(null);
+            return;
+        }
 
+        const unsub = onSnapshot(
+            doc(db, "users", user.uid),
+            (snap) => {
+                if (snap.exists()) {
+                    setUserData(snap.data() as UserData);
+                }
+            },
+            (err) => {
+                console.error("Erro ao carregar dados do usuário:", err);
+            }
+        );
 
+        return () => unsub();
+    }, [user]);
 
     async function handleImprovePrompt() {
         if (!prompt.trim() || optimizing || loading) return;
@@ -67,12 +86,7 @@ export default function CreatePage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     prompt,
-                    // opcional: ajuda a IA a respeitar suas escolhas
-                    objective: active,
-                    format: formato,
-                    audience: publico,
-                    cta,
-                    theme: selectedTheme?.label ?? layout,
+                    theme: selectedLayout?.defaultTheme ?? "auto",
                 }),
             });
 
@@ -100,8 +114,11 @@ export default function CreatePage() {
 
             await ensureAuth();
 
+            const fallbackTemplate = findTemplateById(DEFAULT_TEMPLATE_ID);
             const { projectId } = await generateCarousel({
                 prompt: prompt.trim(),
+                templateId: selectedLayout?.id,
+                theme: selectedLayout?.defaultTheme ?? fallbackTemplate?.defaultTheme ?? "microblog",
             });
 
             navigate(`/editor/${projectId}`);
@@ -119,8 +136,8 @@ export default function CreatePage() {
     return (
         <div className="app_shell">
             <AppSidebar
-                avatarUrl={user?.photoURL ?? null}
-                initials={user?.displayName?.[0]?.toUpperCase() ?? "U"}
+                avatarUrl={userData?.avatarUrl ?? null}
+                initials={userData?.displayName?.[0]?.toUpperCase() ?? user?.displayName?.[0]?.toUpperCase() ?? "U"}
             />
 
             <main className="app_shell_main">
@@ -128,7 +145,7 @@ export default function CreatePage() {
                     <header className="createHeader">
                         <div className="headerLeft">
                             <h1 className="title">Criar carrossel</h1>
-                            <p className="subtitle">Configure objetivo, formato e estilo e depois gere e abra no editor.</p>
+                            <p className="subtitle">Escolha um layout pronto, gere e ajuste só os campos no editor.</p>
                         </div>
 
                         <div className="headerRight">
@@ -222,161 +239,37 @@ export default function CreatePage() {
                         <div className="card settingsCard">
                             <div className="cardTop">
                                 <div className="cardTitleWrap">
-                                    <h2 className="cardTitle">Estilo e estrutura</h2>
-                                    <p className="cardHint">Escolhas rápidas que guiam a IA.</p>
+                                    <h2 className="cardTitle">Layout pronto</h2>
+                                    <p className="cardHint">Escolha um preset visual e ajuste só o conteúdo no editor.</p>
                                 </div>
                             </div>
 
                             <div className="settingsList">
                                 <div className="settingGroup">
-                                    <div className="groupHead">
-                                        <p className="groupTitle">Tema</p>
-                                        <p className="groupDesc">Visual e sensação do design.</p>
-                                    </div>
-                                    <div className="chips">
-                                        {theme.map((e) => (
+
+                                    <div className="layoutPresets">
+                                        {TEMPLATE_CATALOG.map((preset) => (
                                             <button
                                                 type="button"
-                                                key={e.id}
-                                                className={`chip ${layout === e.id ? "isActive" : ""}`}
-                                                onClick={() => setLayout(e.id)}
+                                                key={preset.id}
+                                                className={`layoutPreset ${layout === preset.id ? "isActive" : ""}`}
+                                                onClick={() => setLayout(preset.id)}
                                                 disabled={loading}
+                                                title={preset.description}
                                             >
-                                                {e.label}
+                                                <div className={`layoutPreview is-${preset.id}`} aria-hidden="true">
+                                                    <span className="layoutPreviewBar" />
+                                                    <span className="layoutPreviewHero" />
+                                                    <span className="layoutPreviewText top" />
+                                                    <span className="layoutPreviewText bottom" />
+                                                </div>
+                                                <span className="layoutPresetLabel">{preset.label}</span>
                                             </button>
                                         ))}
                                     </div>
                                 </div>
-                                <div className="settingGroup">
-                                    <div className="groupHead">
-                                        <p className="groupTitle">Objetivo</p>
-                                        <p className="groupDesc">O que você quer que o post faça?</p>
-                                    </div>
-                                    <div className="chips">
-                                        {objetivos.map((obj) => (
-                                            <button
-                                                type="button"
-                                                key={obj.id}
-                                                className={`chip ${active === obj.id ? "isActive" : ""}`}
-                                                onClick={() => setActive(obj.id)}
-                                                disabled={loading}
-                                            >
-                                                {obj.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-
-
-                                <button
-                                    type="button"
-                                    className="ghostBtn"
-                                    onClick={() => setAdvancedSettingsVisible(!advancedSettingsVisible)}
-                                >
-                                    {advancedSettingsVisible ? "Ocultar configurações avançadas" : "Mostrar configurações avançadas"}
-                                </button>
-                                {advancedSettingsVisible && (<>
-                                    <div className="settingGroup">
-                                        <div className="groupHead">
-                                            <p className="groupTitle">Formato</p>
-                                            <p className="groupDesc">Estrutura de narrativa do carrossel.</p>
-                                        </div>
-                                        <div className="chips chipsIcon">
-                                            {formatos.map((fmt) => (
-                                                <button
-                                                    type="button"
-                                                    key={fmt.id}
-                                                    className={`chip chipIcon ${formato === fmt.id ? "isActive" : ""}`}
-                                                    onClick={() => setFormato(fmt.id)}
-                                                    disabled={loading}
-                                                    title={fmt.label}
-                                                >
-                                                    <span className="chipIconInner">{fmt.label}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="settingGroup">
-                                        <div className="groupHead">
-                                            <p className="groupTitle">Público-alvo</p>
-                                            <p className="groupDesc">Para quem você está falando?</p>
-                                        </div>
-                                        <div className="chips">
-                                            {publicos.map((p) => (
-                                                <button
-                                                    type="button"
-                                                    key={p.id}
-                                                    className={`chip ${publico === p.id ? "isActive" : ""}`}
-                                                    onClick={() => setPublico(p.id)}
-                                                    disabled={loading}
-                                                >
-                                                    {p.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="settingGroup">
-                                        <div className="groupHead">
-                                            <p className="groupTitle">CTA automático</p>
-                                            <p className="groupDesc">Terminar com chamada pra ação?</p>
-                                        </div>
-                                        <div className="chips">
-                                            {ctas.map((c) => (
-                                                <button
-                                                    type="button"
-                                                    key={c.id}
-                                                    className={`chip ${cta === c.id ? "isActive" : ""}`}
-                                                    onClick={() => setCta(c.id)}
-                                                    disabled={loading}
-                                                >
-                                                    {c.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div></>)}
                             </div>
 
-                            {hasAnySelection && (
-                                <div className="summaryBar">
-                                    {selectedObjective && (
-                                        <div className="summaryItem">
-                                            <span className="summaryLabel">Objetivo</span>
-                                            <span className="summaryValue">{selectedObjective.label}</span>
-                                        </div>
-                                    )}
-
-                                    {selectedFormat && (
-                                        <div className="summaryItem">
-                                            <span className="summaryLabel">Formato</span>
-                                            <span className="summaryValue">{selectedFormat.label}</span>
-                                        </div>
-                                    )}
-
-                                    {selectedAudience && (
-                                        <div className="summaryItem">
-                                            <span className="summaryLabel">Público</span>
-                                            <span className="summaryValue">{selectedAudience.label}</span>
-                                        </div>
-                                    )}
-
-                                    {selectedCta && (
-                                        <div className="summaryItem">
-                                            <span className="summaryLabel">CTA</span>
-                                            <span className="summaryValue">{selectedCta.label}</span>
-                                        </div>
-                                    )}
-
-                                    {selectedTheme && (
-                                        <div className="summaryItem">
-                                            <span className="summaryLabel">Tema</span>
-                                            <span className="summaryValue">{selectedTheme.label}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
                         </div>
                     </div>
                 </section>
@@ -387,60 +280,6 @@ export default function CreatePage() {
 
 
 }
-
-
-const objetivos = [
-    { id: "venda", label: "Venda Direta" },
-    { id: "educacional", label: "Educacional" },
-    { id: "autoridade", label: "Autoridade" },
-    { id: "relacionamento", label: "Relacionamento" },
-    { id: "lancamento", label: "Lançamento" },
-    { id: "storytelling", label: "Storytelling" },
-    { id: "engajamento", label: "Pergunta / engajamento" },
-];
-
-const formatos = [
-    { id: "passo", label: "🧩 Passo a passo" },
-    { id: "erros", label: "❌ Erros comuns" },
-    { id: "checklist", label: "✅ Checklist" },
-    { id: "antesDepois", label: "⚔️ Antes vs Depois" },
-    { id: "mitoVerdade", label: "📊 Mito vs Verdade" },
-    { id: "framework", label: "🧠 Framework (3 passos / 5 pilares)" },
-    { id: "historia", label: "🧵 História em sequência" },
-    { id: "dicas", label: "📌 Dicas rápidas" },
-];
-
-const publicos = [
-    { id: "iniciante", label: "Iniciantes" },
-    { id: "profissional", label: "Profissionais" },
-    { id: "empreendedor", label: "Empreendedores" },
-    { id: "designer", label: "Designers" },
-    { id: "dev", label: "Devs" },
-    { id: "criador", label: "Criadores de conteúdo" },
-];
-
-const ctas = [
-    { id: "seguir", label: "Seguir perfil" },
-    { id: "salvar", label: "Salvar post" },
-    { id: "comentar", label: "Comentar" },
-    { id: "comprar", label: "Comprar" },
-    { id: "linkBio", label: "Entrar no link da bio" },
-];
-
-const theme = [
-    {
-        id: "editorial3D",
-        label: "Editorial 3D"
-    },
-    {
-        id: "luxuryMinimal",
-        label: "Luxury Minimal"
-    },
-    {
-        id: "microBlogBold",
-        label: "Micro Blog Bold"
-    },
-];
 
 const prompts = [
     "Faça um carrossel explicando por que pequenas empresas precisam de presença digital em 2026. Use 7 slides e um CTA final.",

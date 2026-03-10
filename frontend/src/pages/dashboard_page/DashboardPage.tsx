@@ -7,6 +7,7 @@ import { ref as storageRef, listAll, deleteObject } from "firebase/storage";
 import { useAuth } from "../../lib/hooks/useAuth";
 import token from "../../assets/icons/token_icon.svg";
 import { AppSidebar } from "../../components/app_sidebar/AppSidebar";
+import type { UserData } from "../../types/userData";
 
 type FirestoreDate = { toDate?: () => Date } | Date | undefined;
 
@@ -20,11 +21,6 @@ type ProjectCard = {
     updatedAt?: FirestoreDate;
 };
 
-type UserData = {
-    avatarUrl?: string;
-    displayName?: string;
-    tokensBalance?: number;
-};
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",

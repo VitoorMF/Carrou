@@ -64,7 +64,7 @@ export type CanvasElement =
     y: number;
     w: number;
     h: number;
-    name: "dots" | "blob" | "wave" | "line" | "circle";
+    name: "dots" | "blob" | "wave" | "line" | "circle" | "arrows" | "pillBadge";
     opacity?: number; // 0.03..0.22
     color?: string;   // opcional
     scale?: number;   // 0.8..2.5

@@ -1,7 +1,10 @@
 import { auth } from "./firebase";
+import type { TemplateId } from "../templates/templateCatalog";
 
 type GenerateCarouselPayload = {
     prompt: string;
+    templateId?: TemplateId;
+    theme?: string;
 };
 
 type GenerateCarouselResponse = {

@@ -10,6 +10,11 @@ type Theme = {
 };
 
 function pickTheme(seed = "clean"): Theme {
+    const token = String(seed ?? "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
     const themes: Theme[] = [
         { bg: "#EFF8F8", text: "#393939", muted: "#646464", accent: "#006884", accent2: "#375f65ff" },
 
@@ -35,6 +40,11 @@ function pickTheme(seed = "clean"): Theme {
         { bg: "#EFF8F8", text: "#0F172A", muted: "#334155", accent: "#10B981", accent2: "#60A5FA" },
         { bg: "#EFF8F8", text: "#111827", muted: "#4B5563", accent: "#F97316", accent2: "#FB7185" },
     ];
+
+    if (token.includes("lavanda") || token.includes("purple") || token.includes("violet")) return themes[1];
+    if (token.includes("emerald") || token.includes("green")) return themes[2];
+    if (token.includes("orange") || token.includes("pop") || token.includes("sunset")) return themes[3];
+
     return themes[0];
 }
 
@@ -148,6 +158,7 @@ function ensureImage(slide: any, theme: Theme) {
             true-to-life object colors,
             medium saturation,
             vivid but balanced color palette,
+            use accents inspired by ${theme.accent} and ${theme.accent2},
             neutral studio lighting (not soft editorial),
             clean but colorful,
             no text,

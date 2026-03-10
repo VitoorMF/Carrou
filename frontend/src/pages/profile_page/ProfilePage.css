@@ -1,19 +1,15 @@
 .profile_page {
     min-height: 100vh;
-    padding: 22px;
-    background: #f3f4f6;
+    padding: 20px;
+    background: #f1f2f4;
 }
 
 .profile_surface {
-    min-height: calc(100vh - 44px);
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
-    padding: 20px;
+    min-height: calc(100vh - 40px);
+    padding: 22px 24px;
 }
 
 .profile_header {
-    border-bottom: 1px solid #eef0f4;
     padding-bottom: 14px;
 }
 
@@ -25,27 +21,29 @@
 
 .profile_header h1 {
     margin: 6px 0 8px;
-    font-size: 30px;
+    font-size: 32px;
     line-height: 1.1;
+    letter-spacing: -0.02em;
     color: #111827;
 }
 
 .profile_header p {
     margin: 0;
-    color: #4b5563;
+    color: #6b7280;
+    font-size: 13px;
 }
 
 .profile_body {
     margin-top: 16px;
     display: grid;
     grid-template-columns: 220px minmax(0, 1fr);
-    gap: 16px;
+    gap: 14px;
 }
 
 .profile_avatar_card {
-    border: 1px solid #e5e7eb;
+    border: 1px solid #e6e8ee;
     border-radius: 12px;
-    background: #fafafa;
+    background: #ffffff;
     padding: 14px;
     display: grid;
     gap: 12px;
@@ -83,8 +81,8 @@
 .avatar_remove_btn {
     height: 34px;
     border-radius: 9px;
-    border: 1px solid #d1d5db;
-    background: #fff;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
     color: #111827;
     font-size: 12px;
     font-weight: 700;
@@ -104,9 +102,7 @@
 }
 
 .avatar_remove_btn {
-    color: #b91c1c;
-    border-color: #fecaca;
-    background: #fff5f5;
+    color: #dc2626;
 }
 
 .profile_balance {
@@ -129,9 +125,9 @@
 }
 
 .profile_form {
-    border: 1px solid #e5e7eb;
+    border: 1px solid #e6e8ee;
     border-radius: 12px;
-    background: #fff;
+    background: #ffffff;
     padding: 14px;
     display: grid;
     gap: 12px;
@@ -157,8 +153,8 @@
 
 .profile_form input:focus {
     outline: none;
-    border-color: #f77e58;
-    box-shadow: 0 0 0 3px rgba(247, 126, 88, 0.2);
+    border-color: #d1d5db;
+    box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
 }
 
 .profile_form input[readonly] {
@@ -171,14 +167,19 @@
 }
 
 .save_btn {
-    height: 40px;
+    height: 36px;
     border-radius: 10px;
     border: none;
-    background: linear-gradient(180deg, #f99a7f 0%, #f77e58 100%);
+    background: #f77e58;
     color: #fff;
+    font-size: 13px;
     font-weight: 700;
-    padding: 0 14px;
+    padding: 0 12px;
     cursor: pointer;
+}
+
+.save_btn:hover {
+    background: #e66b4d;
 }
 
 .save_btn:disabled {
@@ -199,14 +200,14 @@
     color: #dc2626;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1024px) {
     .profile_page {
         padding: 12px;
     }
 
     .profile_surface {
         min-height: auto;
-        padding: 14px;
+        padding: 16px;
     }
 
     .profile_body {

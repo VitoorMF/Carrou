@@ -1,238 +1,54 @@
 import { z } from "zod";
 
-export const creativeDirectionSchema = z.object({
-    niche: z.string().min(1),
-    goal: z.enum(["educar", "vender", "engajar", "captar_leads", "autoridade"]),
-    tone: z.enum(["serio", "profissional", "didatico", "premium", "energetico", "amigavel"]),
-    audience_awareness: z.enum(["baixo", "medio", "alto"]),
-    visual_style: z.enum([
-        "editorial_minimal",
-        "luxury_minimal",
-        "microblog_bold",
-        "social_dynamic",
-        "clean_modern",
-    ]),
-    content_density: z.enum(["low", "medium", "high"]),
-    layout_energy: z.enum(["low", "medium", "high"]),
-    image_strategy: z.enum(["none", "minimal", "single_hero", "supportive"]),
-    narrative_structure: z.enum([
-        "hook_points_cta",
-        "hook_explanation_cta",
-        "hook_explanation_authority_cta",
-        "problem_solution_cta",
-        "myth_truth_cta",
-        "step_by_step_cta",
-    ]),
-    cta_style: z.enum(["professional", "direct", "soft", "urgent"]),
-    color_mood: z.enum([
-        "neutral_dark",
-        "light_clean",
-        "premium_warm",
-        "tech_cool",
-        "bold_contrast",
-    ]),
-    trust_signals: z.array(z.string()).max(8),
-    avoid: z.array(z.string()).max(12),
-});
-
-export type CreativeDirection = z.infer<typeof creativeDirectionSchema>;
-
-export const carouselDraftMetaSchema = z.object({
-    title: z.string().min(1),
-    objective: z.string().min(1).default("engajar"),
-    style: z.string().min(1).default("template-driven"),
-});
-
-export const carouselDraftSlideSchema = z.object({
-    id: z.string(),
-    role: z.enum(["cover", "content", "cta"]),
-    headline: z.string().min(1),
-    body: z.string().default(""),
-    bullets: z.array(z.string()).max(6).default([]),
-    footer: z.string().optional(),
-    imagePrompt: z.string().optional(),
-    notes: z.string().optional(),
-    design: z.object({
-        layout: z.enum(["center", "left", "split"]).optional(),
-        emphasis: z.array(z.string()).optional(),
-    }).optional(),
-});
-
 export const carouselDraftSchema = z.object({
-    meta: carouselDraftMetaSchema,
-    slides: z.array(carouselDraftSlideSchema).min(4).max(8),
+    meta: z.object({
+        title: z.string().min(1),
+        objective: z.string().min(1).default("engajar"),
+        style: z.string().min(1).default("template-driven"),
+    }),
+    slides: z.array(
+        z.object({
+            id: z.string(),
+            role: z.enum(["cover", "content", "cta"]),
+            headline: z.string().min(1),
+            body: z.string().default(""),
+            bullets: z.array(z.string()).max(6).default([]),
+            footer: z.string().optional(),
+            imagePrompt: z.string().optional(),
+            notes: z.string().optional(),
+        })
+    ).min(4).max(8),
 });
 
 export type CarouselDraft = z.infer<typeof carouselDraftSchema>;
 
-export const carouselMetaSchema = z.object({
-    title: z.string().min(1),
-    objective: z.string().min(1).default("engajar"),
-    style: z.string().min(1),
-    palette: z
-        .object({
-            bg: z.string(),
-            text: z.string(),
-            muted: z.string().optional(),
-            accent: z.string().optional(),
-            accent2: z.string().optional(),
-        })
-        .optional(),
-});
+export type CarouselElement =
+    | ({ id: string; type: "text"; x: number; y: number; text: string; fill: string } & Record<string, unknown>)
+    | ({ id: string; type: "background"; x: number; y: number; width: number; height: number; fill: string } & Record<string, unknown>)
+    | ({ id: string; type: "path"; x: number; y: number; data: string; fill: string } & Record<string, unknown>)
+    | ({ id: string; type: "arrow"; x: number; y: number; data: string; fill: string } & Record<string, unknown>)
+    | ({ id: string; type: "image"; x: number; y: number; width: number; height: number; prompt: string } & Record<string, unknown>)
+    | ({ id: string; type: "gradientRect"; x: number; y: number; width: number; height: number; kind: "linear" | "radial" } & Record<string, unknown>)
+    | ({ id: string; type: "glow"; x: number; y: number; r: number; color: string; blur: number } & Record<string, unknown>)
+    | ({ id: string; type: "glassCard"; x: number; y: number; width: number; height: number; radius: number } & Record<string, unknown>)
+    | ({ id: string; type: "backgroundImage"; x: number; y: number; width: number; height: number } & Record<string, unknown>)
+    | ({ id: string; type: "noise"; x: number; y: number; width: number; height: number; url: string } & Record<string, unknown>);
 
-export const textElementSchema = z.object({
-    id: z.string(),
-    type: z.literal("text"),
-    x: z.number(),
-    y: z.number(),
-    text: z.string(),
-    fill: z.string(),
-    fontSize: z.number().optional(),
-    fontFamily: z.string().optional(),
-    fontStyle: z.string().optional(),
-    width: z.number().optional(),
-    align: z.enum(["left", "center", "right", "justify"]).optional(),
-    lineHeight: z.number().optional(),
-    letterSpacing: z.number().optional(),
-    opacity: z.number().optional(),
-});
-
-export const rectElementSchema = z.object({
-    id: z.string(),
-    type: z.literal("background"),
-    x: z.number(),
-    y: z.number(),
-    width: z.number(),
-    height: z.number(),
-    fill: z.string(),
-    opacity: z.number().optional(),
-});
-
-const vec2Schema = z.object({ x: z.number(), y: z.number() });
-
-export const pathElementSchema = z.object({
-    id: z.string(),
-    type: z.literal("path"),
-    x: z.number(),
-    y: z.number(),
-    data: z.string(),
-    fill: z.string(),
-    opacity: z.number().optional(),
-});
-
-export const imageElementSchema = z.object({
-    id: z.string(),
-    type: z.literal("image"),
-    x: z.number(),
-    y: z.number(),
-    width: z.number(),
-    height: z.number(),
-    prompt: z.string().min(1),
-    url: z.string().url().optional(),
-    src: z.string().url().optional(),
-    radius: z.number().optional(),
-    borderRadius: z.number().optional(),
-    rotate: z.number().optional(),
-    fit: z.enum(["cover", "contain"]).optional(),
-    cover: z.enum(["cover", "contain"]).optional(),
-    opacity: z.number().optional(),
-});
-
-export const gradientRectElementSchema = z.object({
-    id: z.string(),
-    type: z.literal("gradientRect"),
-    x: z.number(),
-    y: z.number(),
-    width: z.number(),
-    height: z.number(),
-    kind: z.enum(["linear", "radial"]),
-    start: vec2Schema.optional(),
-    end: vec2Schema.optional(),
-    center: vec2Schema.optional(),
-    radius: z.number().optional(),
-    stops: z.union([
-        z.array(z.tuple([z.number().min(0).max(1), z.string()])).min(2).max(6),
-        z.array(z.union([z.number().min(0).max(1), z.string()]))
-            .min(4)
-            .max(12)
-            .refine(
-                (arr) => arr.length % 2 === 0 && arr.every((v, i) => (i % 2 === 0 ? typeof v === "number" : typeof v === "string")),
-                "stops flat deve seguir [offset, color, offset, color]"
-            ),
-    ]),
-    opacity: z.number().optional(),
-});
-
-export const glowElementSchema = z.object({
-    id: z.string(),
-    type: z.literal("glow"),
-    x: z.number(),
-    y: z.number(),
-    r: z.number(),
-    color: z.string(),
-    blur: z.number(),
-    opacity: z.number().optional(),
-});
-
-export const glassCardElementSchema = z.object({
-    id: z.string(),
-    type: z.literal("glassCard"),
-    x: z.number(),
-    y: z.number(),
-    width: z.number(),
-    height: z.number(),
-    radius: z.number(),
-    fill: z.string().optional(),
-    stroke: z.string().optional(),
-    strokeWidth: z.number().optional(),
-    opacity: z.number().optional(),
-    shadow: z.object({ blur: z.number(), y: z.number(), opacity: z.number() }).optional(),
-});
-
-export const backgroundImageElementSchema = z.object({
-    id: z.string(),
-    type: z.literal("backgroundImage"),
-    x: z.number(),
-    y: z.number(),
-    width: z.number(),
-    height: z.number(),
-    prompt: z.string().min(1).optional(),
-    url: z.string().url().optional(),
-    src: z.string().url().optional(),
-    opacity: z.number().optional(),
-});
-
-export const noiseElementSchema = z.object({
-    id: z.string(),
-    type: z.literal("noise"),
-    x: z.number(),
-    y: z.number(),
-    width: z.number(),
-    height: z.number(),
-    url: z.string(),
-    opacity: z.number().optional(),
-});
-
-export const elementSchema = z.union([
-    textElementSchema,
-    rectElementSchema,
-    pathElementSchema,
-    imageElementSchema,
-    gradientRectElementSchema,
-    glowElementSchema,
-    glassCardElementSchema,
-    backgroundImageElementSchema,
-    noiseElementSchema,
-]);
-
-export const slideSchema = z.object({
-    id: z.string(),
-    elements: z.array(elementSchema).max(20),
-});
-
-export const carouselSchema = z.object({
-    meta: carouselMetaSchema,
-    slides: z.array(slideSchema).min(4).max(10),
-});
-
-export type Carousel = z.infer<typeof carouselSchema>;
+export type Carousel = {
+    meta: {
+        title: string;
+        objective: string;
+        style: string;
+        palette?: {
+            bg: string;
+            text: string;
+            muted?: string;
+            accent?: string;
+            accent2?: string;
+        };
+    };
+    slides: Array<{
+        id: string;
+        elements: CarouselElement[];
+    }>;
+};

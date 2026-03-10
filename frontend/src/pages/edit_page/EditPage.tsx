@@ -19,7 +19,7 @@ type EditorElement = {
     [key: string]: unknown;
 };
 
-type Slide = {
+type EditorSlide = {
     id: string;
     name: string;
     elements: EditorElement[];
@@ -42,7 +42,7 @@ export default function EditPage() {
     const [projectName, setProjectName] = useState("Projeto sem nome");
     const [carouselData, setCarouselData] = useState<Carousel | null>(null);
 
-    const [slides, setSlides] = useState<Slide[]>([{ id: crypto.randomUUID(), name: "Slide 1", elements: [] }]);
+    const [slides, setSlides] = useState<EditorSlide[]>([{ id: crypto.randomUUID(), name: "Slide 1", elements: [] }]);
     const [activeSlideId, setActiveSlideId] = useState(slides[0].id);
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
 
@@ -65,12 +65,13 @@ export default function EditPage() {
 
     function updateSlidesFromCarousel(nextCarousel: Carousel) {
         setCarouselData(nextCarousel);
-        const editorSlides = firestoreSlidesToEditorSlides(nextCarousel.slides);
+        const editorSlides = firestoreSlidesToEditorSlides(nextCarousel.slides as any[]);
+        const fallbackSlideId = editorSlides[0]?.id ?? crypto.randomUUID();
 
         setSlides(editorSlides);
         setActiveSlideId((prev) => {
             const exists = editorSlides.some((s) => s.id === prev);
-            return exists ? prev : editorSlides[0]?.id;
+            return exists ? prev : fallbackSlideId;
         });
         setSelectedElementId(null);
     }
@@ -171,22 +172,33 @@ export default function EditPage() {
             body: JSON.stringify({ projectId: projectIdValue, slideId, elementId }),
         });
 
-        const json = await res.json();
-        if (!json.ok) {
-            throw new Error(json.error || "Erro ao gerar imagem");
+        const contentType = res.headers.get("content-type") ?? "";
+        const payload = contentType.includes("application/json") ? await res.json() : await res.text();
+
+        if (!res.ok) {
+            const message = typeof payload === "string" ? payload : payload?.error ?? "Erro ao gerar imagem";
+            throw new Error(String(message));
         }
 
-        return json.src as string;
+        if (typeof payload !== "object" || !payload || !payload.ok) {
+            throw new Error("Erro ao gerar imagem");
+        }
+
+        return String(payload.src ?? "");
     }
 
-    async function generateMissingImagesForSlide(slide: Slide) {
+    async function generateMissingImagesForSlide(slide: EditorSlide) {
         if (!projectId) {
             return;
         }
 
-        const imagesToGenerate = slide.elements.filter(
-            (e) => e.type === "image" && e.prompt && !e.src && e.status !== "pending"
-        );
+        const imagesToGenerate = slide.elements.filter((element): element is EditorElement & { prompt: string } => (
+            element.type === "image"
+            && typeof element.prompt === "string"
+            && element.prompt.trim().length > 0
+            && !element.src
+            && element.status !== "pending"
+        ));
 
         if (imagesToGenerate.length === 0) {
             setStatusMessage("Nenhuma imagem pendente neste slide.");
@@ -273,7 +285,7 @@ export default function EditPage() {
         <div className="editor_screen">
             <header className="editor_topbar">
                 <div className="topbar_group">
-                    <button className="back_button" onClick={() => router.navigate("/")}>
+                    <button className="back_button" onClick={() => router.navigate("/")} type="button">
                         ← Voltar
                     </button>
                     <input
@@ -285,15 +297,17 @@ export default function EditPage() {
                 </div>
 
                 <div className="topbar_group topbar_center">
-                    <button className="chip_button" type="button" onClick={zoomOut}>
-                        -
-                    </button>
-                    <button className="chip_button chip_button_value" type="button" onClick={resetZoom}>
-                        {Math.round(zoom * 100)}%
-                    </button>
-                    <button className="chip_button" type="button" onClick={zoomIn}>
-                        +
-                    </button>
+                    <div className="topbar_zoom_cluster">
+                        <button className="chip_button" type="button" onClick={zoomOut}>
+                            -
+                        </button>
+                        <button className="chip_button chip_button_value" type="button" onClick={resetZoom}>
+                            {Math.round(zoom * 100)}%
+                        </button>
+                        <button className="chip_button" type="button" onClick={zoomIn}>
+                            +
+                        </button>
+                    </div>
                 </div>
 
                 <div className="topbar_group topbar_right">
@@ -428,7 +442,7 @@ function projectDocToCarousel(data: any): Carousel {
     } as Carousel;
 }
 
-function firestoreSlidesToEditorSlides(rawSlides: any[]): Slide[] {
+function firestoreSlidesToEditorSlides(rawSlides: any[]): EditorSlide[] {
     if (!Array.isArray(rawSlides) || rawSlides.length === 0) {
         return [{ id: crypto.randomUUID(), name: "Slide 1", elements: [] }];
     }
@@ -455,119 +469,84 @@ function firestoreSlidesToEditorSlides(rawSlides: any[]): Slide[] {
         return [];
     }
 
-    return rawSlides.map((s: any, idx: number) => ({
-        id: s?.id ?? `s${idx + 1}`,
-        name: `Slide ${idx + 1}`,
+    return rawSlides.map((slide: any, index: number) => ({
+        id: slide?.id ?? `s${index + 1}`,
+        name: `Slide ${index + 1}`,
         background:
-            s?.canvas?.background
-            ?? (Array.isArray(s?.layers?.background)
+            slide?.canvas?.background
+            ?? (Array.isArray(slide?.layers?.background)
                 ? (() => {
-                    const bg = s.layers.background.find((el: any) => el?.type === "background");
-                    return bg ? { type: "solid", value: bg.fill ?? "#FFFFFF" } : { type: "solid", value: "#FFFFFF" };
+                    const bg = slide.layers.background.find((el: any) => el?.type === "background");
+                    return bg ? { type: "solid" as const, value: bg.fill ?? "#FFFFFF" } : { type: "solid" as const, value: "#FFFFFF" };
                 })()
-                : { type: "solid", value: "#FFFFFF" }),
-        elements: extractElements(s)
-            .map((el: any) => {
+                : { type: "solid" as const, value: "#FFFFFF" }),
+        elements: extractElements(slide)
+            .map((el: any): EditorElement | null => {
                 if (!el?.id || !el?.type) {
                     return null;
                 }
 
-                const base = {
+                const base: EditorElement = {
                     id: el.id,
                     type: el.type,
                     x: el.x ?? 0,
                     y: el.y ?? 0,
                     opacity: el.opacity ?? 1,
-                } as EditorElement;
+                };
 
                 if (el.type === "text") {
-                    const fw =
-                        el.fontWeight === "bold" ? 700
-                            : el.fontWeight === "normal" ? 400
-                                : typeof el.fontWeight === "number" ? el.fontWeight
-                                    : 400;
-
                     return {
                         ...base,
-                        type: "text",
                         content: el.text ?? el.content ?? "",
                         w: el.w ?? el.width,
                         h: el.h ?? el.height,
                         fontSize: el.fontSize,
-                        fontWeight: fw,
+                        fontWeight: el.fontWeight,
                         fontFamily: el.fontFamily,
                         fontStyle: el.fontStyle,
                         lineHeight: el.lineHeight,
                         letterSpacing: el.letterSpacing,
                         align: el.align,
                         color: el.color ?? el.fill,
-                    } as EditorElement;
-                }
-
-                if (el.type === "icon") {
-                    return {
-                        ...base,
-                        type: "icon",
-                        name: el.name,
-                        size: el.size ?? 96,
-                        color: el.color,
-                    } as EditorElement;
-                }
-
-                if (el.type === "shape") {
-                    return {
-                        ...base,
-                        type: "shape",
-                        name: el.name,
-                        w: el.w ?? 240,
-                        h: el.h ?? 240,
-                        opacity: el.opacity ?? 0.08,
-                        color: el.color,
-                        scale: el.scale ?? 1,
-                    } as EditorElement;
+                    };
                 }
 
                 if (el.type === "image" || el.type === "backgroundImage") {
                     return {
                         ...base,
-                        type: el.type,
                         w: el.w ?? el.width ?? 400,
                         h: el.h ?? el.height ?? 400,
                         src: el.src ?? el.url ?? "",
                         prompt: el.prompt ?? "",
                         fit: el.fit ?? el.cover ?? "cover",
                         pos: el.pos ?? { x: 0.5, y: 0.5 },
-                        opacity: el.opacity ?? 1,
                         radius: el.radius ?? el.borderRadius ?? 0,
                         rotate: el.rotate ?? 0,
-                    } as EditorElement;
+                    };
                 }
 
                 if (el.type === "background") {
                     return {
                         ...base,
-                        type: "background",
                         fill: el.fill ?? "#FFFFFF",
                         w: el.w ?? el.width ?? 1080,
                         h: el.h ?? el.height ?? 1350,
-                    } as EditorElement;
+                    };
                 }
 
                 if (el.type === "path") {
                     return {
                         ...base,
-                        type: "path",
                         data: el.data ?? "",
                         fill: el.fill ?? "#111827",
                         stroke: el.stroke,
                         strokeWidth: el.strokeWidth,
-                    } as EditorElement;
+                    };
                 }
 
                 if (el.type === "gradientRect") {
                     return {
                         ...base,
-                        type: "gradientRect",
                         w: el.w ?? el.width ?? 1080,
                         h: el.h ?? el.height ?? 1350,
                         kind: el.kind ?? "linear",
@@ -576,58 +555,53 @@ function firestoreSlidesToEditorSlides(rawSlides: any[]): Slide[] {
                         center: el.center,
                         radius: el.radius,
                         stops: el.stops ?? [],
-                    } as EditorElement;
+                    };
                 }
 
                 if (el.type === "glow") {
                     return {
                         ...base,
-                        type: "glow",
                         r: el.r ?? 120,
-                        color: el.color ?? "#F77E58",
+                        color: "#F77E58",
                         blur: el.blur ?? 40,
-                    } as EditorElement;
+                    };
                 }
 
                 if (el.type === "glassCard") {
                     return {
                         ...base,
-                        type: "glassCard",
                         w: el.w ?? el.width ?? 500,
                         h: el.h ?? el.height ?? 260,
                         radius: el.radius ?? 20,
                         fill: el.fill ?? "rgba(255,255,255,0.12)",
                         stroke: el.stroke,
                         strokeWidth: el.strokeWidth,
-                    } as EditorElement;
+                    };
                 }
 
                 if (el.type === "noise") {
                     return {
                         ...base,
-                        type: "noise",
                         w: el.w ?? el.width ?? 1080,
                         h: el.h ?? el.height ?? 1350,
                         src: el.src ?? el.url ?? "",
-                    } as EditorElement;
+                    };
                 }
 
                 if (el.type === "profileCard") {
                     return {
                         ...base,
-                        type: "profileCard",
                         w: el.w ?? 400,
                         h: el.h ?? 72,
                         variant: el.variant,
                         user: el.user,
                         accent: el.accent,
                         text: el.text,
-                        opacity: el.opacity ?? 1,
-                    } as EditorElement;
+                    };
                 }
 
                 return base;
             })
-            .filter(Boolean) as EditorElement[],
+            .filter((el): el is EditorElement => el !== null),
     }));
 }

@@ -1,12 +1,12 @@
 .plans_page {
     min-height: 100vh;
-    padding: 24px;
-    background: #f3f4f6;
+    padding: 20px;
+    background: #f1f2f4;
 }
 
 .plans_header {
     border: 1px solid #e5e7eb;
-    border-radius: 14px;
+    border-radius: 12px;
     background: #fff;
     padding: 18px;
     display: flex;
@@ -23,51 +23,61 @@
 
 .plans_header h1 {
     margin: 6px 0 8px;
-    font-size: 30px;
+    font-size: 32px;
     line-height: 1.1;
+    letter-spacing: -0.02em;
     color: #111827;
 }
 
 .plans_header p {
     margin: 0;
-    color: #4b5563;
-    max-width: 600px;
+    color: #6b7280;
+    max-width: 620px;
+    font-size: 13px;
 }
 
 .plans_back {
     height: 36px;
     border-radius: 10px;
-    border: 1px solid #d1d5db;
-    background: #fff;
-    color: #111827;
-    font-weight: 600;
+    border: 1px solid #111827;
+    background: #111827;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
     padding: 0 12px;
     cursor: pointer;
+}
+
+.plans_back:hover {
+    background: #000;
 }
 
 .plans_grid {
     margin-top: 14px;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 14px;
 }
 
 .plan_card {
     position: relative;
-    border-radius: 14px;
-    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    border: 1px solid #e6e8ee;
     background: #fff;
-    padding: 16px;
+    padding: 14px;
 }
 
 .plan_card h2 {
     margin: 0;
-    font-size: 20px;
+    font-size: 22px;
+    line-height: 1.15;
+    color: #111827;
 }
 
 .plan_price {
     margin: 8px 0 0;
-    font-size: 28px;
+    font-size: 30px;
+    line-height: 1;
     font-weight: 700;
     color: #111827;
 }
@@ -80,9 +90,10 @@
 }
 
 .plan_tokens {
-    margin: 6px 0 12px;
-    color: #1f2937;
-    font-weight: 600;
+    margin: 8px 0 12px;
+    color: #4b5563;
+    font-size: 13px;
+    font-weight: 700;
 }
 
 .plan_card ul {
@@ -96,18 +107,32 @@
 
 .plan_card button {
     margin-top: 14px;
-    height: 38px;
+    height: 36px;
     width: 100%;
     border-radius: 10px;
-    border: 1px solid #d1d5db;
-    background: #fff;
+    border: 1px solid transparent;
+    background: #f77e58;
+    color: #fff;
+    font-size: 13px;
     font-weight: 700;
     cursor: pointer;
 }
 
-.plan_card.principal {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+.plan_card button:hover {
+    background: #e66b4d;
+}
+
+.plan_card.active {
+    border-color: #f77e58;
+    box-shadow: 0 0 0 1px rgba(247, 126, 88, 0.22);
+}
+
+.plan_card.active button {
+    background: #111827;
+}
+
+.plan_card.active button:hover {
+    background: #000;
 }
 
 .badge {
@@ -116,8 +141,8 @@
     right: 12px;
     font-size: 11px;
     font-weight: 700;
-    color: #1d4ed8;
-    background: #dbeafe;
+    color: #c2410c;
+    background: rgba(247, 126, 88, 0.16);
     border-radius: 999px;
     padding: 4px 8px;
 }
@@ -125,20 +150,22 @@
 .recharge_section {
     margin-top: 14px;
     border: 1px solid #e5e7eb;
-    border-radius: 14px;
+    border-radius: 12px;
     background: #fff;
     padding: 16px;
 }
 
 .recharge_head h3 {
     margin: 0;
-    font-size: 20px;
+    font-size: 22px;
+    line-height: 1.15;
+    color: #111827;
 }
 
 .recharge_head p {
     margin: 6px 0 0;
     color: #6b7280;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .recharge_list {
@@ -151,15 +178,34 @@
 .recharge_item {
     height: 54px;
     border-radius: 10px;
-    border: 1px solid #d1d5db;
+    border: 1px solid #e5e7eb;
     background: #f9fafb;
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 0 12px;
     cursor: pointer;
+    color: #4b5563;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.recharge_item:hover {
+    border-color: #d1d5db;
+    background: #fff;
 }
 
 .recharge_item strong {
     color: #111827;
+}
+
+@media (max-width: 1024px) {
+    .plans_page {
+        padding: 12px;
+    }
+
+    .plans_header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
 }

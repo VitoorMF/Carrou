@@ -1,10 +1,5 @@
-import {
-    DOC_H,
-    DOC_W,
-    TemplateBuildParams,
-    truncateText,
-    type CarouselElement,
-} from "../shared";
+import { DOC_H, DOC_W, truncateText } from "../shared";
+import type { CarouselElement, TemplateBuildParams } from "../types";
 
 function buildImagePrompt(heading: string, accent: string, accent2: string) {
     return [

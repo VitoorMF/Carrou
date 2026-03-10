@@ -1,9 +1,6 @@
-// autoLayout.ts
-// Ctrl+C / Ctrl+V: medição de texto + flow vertical + applyAutoLayoutAsync
-// - Reusa 1 único elemento DOM (bem mais leve)
-// - Cache por chave (bem mais rápido)
-// - Espera fontes carregarem (document.fonts.ready)
-// - SSR-safe (não quebra em Node)
+// autoLayout.ts — v2
+// Compatível com os IDs gerados pelo novo normalize.ts (heading_0, support_0, etc.)
+// e também com os IDs legados (headline, body, bullets)
 
 type MeasureOpts = {
     text: string;
@@ -11,7 +8,7 @@ type MeasureOpts = {
     fontSize: number;
     fontFamily?: string;
     fontWeight?: number | string;
-    lineHeight?: number; // ex: 1.2
+    lineHeight?: number;
     maxLines?: number;
 };
 
@@ -25,7 +22,6 @@ class TextMeasurer {
 
     private ensureEl() {
         if (!this.canUseDom()) return null;
-
         if (this.el) return this.el;
 
         const el = document.createElement("div");
@@ -37,7 +33,6 @@ class TextMeasurer {
         el.style.wordBreak = "break-word";
         el.style.pointerEvents = "none";
         document.body.appendChild(el);
-
         this.el = el;
         return el;
     }
@@ -54,39 +49,35 @@ class TextMeasurer {
         ].join("|");
     }
 
-    measure(opts: MeasureOpts) {
+    measure(opts: MeasureOpts): number {
         const k = this.key(opts);
         const cached = this.cache.get(k);
         if (cached != null) return cached;
 
         const el = this.ensureEl();
         if (!el) {
-            // SSR fallback: estimativa simples (não perfeita, mas evita quebrar)
+            // SSR fallback
             const lh = (opts.lineHeight ?? 1.2) * opts.fontSize;
-            const approxCharsPerLine = Math.max(1, Math.floor(opts.width / (opts.fontSize * 0.55)));
+            const charsPerLine = Math.max(1, Math.floor(opts.width / (opts.fontSize * 0.55)));
             const raw = (opts.text ?? "").split("\n");
             let lines = 0;
-            for (const part of raw) lines += Math.max(1, Math.ceil(part.length / approxCharsPerLine));
+            for (const part of raw) lines += Math.max(1, Math.ceil(part.length / charsPerLine));
             if (opts.maxLines) lines = Math.min(lines, opts.maxLines);
             const h = Math.ceil(lines * lh);
             this.cache.set(k, h);
             return h;
         }
 
-        // styles
         el.style.width = `${opts.width}px`;
         el.style.fontSize = `${opts.fontSize}px`;
-        el.style.fontFamily = opts.fontFamily ?? "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial";
+        el.style.fontFamily = opts.fontFamily ?? "Sora, Manrope, system-ui";
         el.style.fontWeight = String(opts.fontWeight ?? 700);
-        el.style.lineHeight = String(opts.lineHeight ?? 1.15);
-
-        // reset clamp
+        el.style.lineHeight = String(opts.lineHeight ?? 1.1);
         el.style.display = "block";
         (el.style as any).webkitBoxOrient = "";
         (el.style as any).webkitLineClamp = "";
         el.style.overflow = "visible";
 
-        // clamp (webkit)
         if (opts.maxLines) {
             el.style.display = "-webkit-box";
             (el.style as any).webkitBoxOrient = "vertical";
@@ -95,7 +86,6 @@ class TextMeasurer {
         }
 
         el.textContent = opts.text ?? "";
-
         const h = el.scrollHeight;
         this.cache.set(k, h);
         return h;
@@ -122,109 +112,185 @@ export function clearMeasureCache() {
     measurer.clearCache();
 }
 
-function findById(slide: any, id: string) {
-    const canvasElements = Array.isArray(slide?.canvas?.elements) ? slide.canvas.elements : [];
-    const layerElements = slide?.layers
-        ? [
+// ─── Element finders ──────────────────────────────────────────────────────────
+
+function getAllElements(slide: any): any[] {
+    // Suporte a estrutura layered (novo) e flat (legado)
+    if (slide?.layers) {
+        return [
             ...(Array.isArray(slide.layers.background) ? slide.layers.background : []),
             ...(Array.isArray(slide.layers.atmosphere) ? slide.layers.atmosphere : []),
             ...(Array.isArray(slide.layers.content) ? slide.layers.content : []),
             ...(Array.isArray(slide.layers.ui) ? slide.layers.ui : []),
-        ]
-        : [];
-
-    return [...canvasElements, ...layerElements].find((e: any) => e?.id === id) ?? null;
+        ];
+    }
+    if (Array.isArray(slide?.elements)) return slide.elements;
+    if (Array.isArray(slide?.canvas?.elements)) return slide.canvas.elements;
+    return [];
 }
 
 /**
- * Flow vertical simples baseado em IDs fixos: "headline", "body", "bullets".
- * - Mede altura real e atualiza y/h.
+ * Encontra elemento de texto por:
+ * 1. ID exato (legado: "headline", "body", "bullets")
+ * 2. Padrão de ID do novo normalize (heading_N, support_N, etc.)
+ * 3. Fallback: primeiro/segundo elemento de texto por posição Y
  */
-export function flow(
-    slide: any,
-    gap = 24,
-    rules?: {
-        headlineMaxLines?: number;
-        bodyMaxLines?: number;
-        bulletsMaxLines?: number;
+function findHeadingElement(slide: any, slideIndex: number): any | null {
+    const els = getAllElements(slide);
+    const texts = els.filter((e: any) => e?.type === "text").sort((a: any, b: any) => (a.y ?? 0) - (b.y ?? 0));
+
+    // Legado
+    const legacy = texts.find((e: any) => e?.id === "headline");
+    if (legacy) return legacy;
+
+    // Novo normalize: heading_N
+    const modern = texts.find((e: any) =>
+        e?.id === `heading_${slideIndex}` ||
+        e?.id?.startsWith("heading_") ||
+        e?.id?.startsWith("t_heading_")
+    );
+    if (modern) return modern;
+
+    // Fallback: maior fontSize entre os textos
+    if (texts.length > 0) {
+        return texts.reduce((prev: any, curr: any) =>
+            (curr.fontSize ?? 0) > (prev.fontSize ?? 0) ? curr : prev
+        );
     }
-) {
-    const headline = findById(slide, "headline");
-    const body = findById(slide, "body");
-    const bullets = findById(slide, "bullets");
 
-    if (!headline || !body) return;
+    return null;
+}
 
-    const extra = 6;
+function findSupportElement(slide: any, slideIndex: number): any | null {
+    const els = getAllElements(slide);
+    const texts = els.filter((e: any) => e?.type === "text").sort((a: any, b: any) => (a.y ?? 0) - (b.y ?? 0));
 
-    const headlineH =
-        measureTextHeight({
-            text: headline.text ?? headline.content ?? "",
-            width: headline.w ?? headline.width ?? 700,
-            fontSize: headline.fontSize,
-            fontWeight: headline.fontWeight,
-            lineHeight: headline.lineHeight ?? 1.2,
-            maxLines: rules?.headlineMaxLines ?? 2,
-            fontFamily: headline.fontFamily,
-        }) + extra;
+    // Legado
+    const legacy = texts.find((e: any) => e?.id === "body");
+    if (legacy) return legacy;
 
-    // você pode trocar por headline._h se não quiser "h" público
-    headline.h = headlineH;
+    // Novo normalize: support_N
+    const modern = texts.find((e: any) =>
+        e?.id === `support_${slideIndex}` ||
+        e?.id?.startsWith("support_") ||
+        e?.id?.startsWith("t_support_")
+    );
+    if (modern) return modern;
 
-    body.y = (headline.y ?? 0) + headlineH + gap;
+    // Fallback: segundo texto por posição Y (depois do heading)
+    const heading = findHeadingElement(slide, slideIndex);
+    if (heading && texts.length > 1) {
+        return texts.find((e: any) => e !== heading && (e.y ?? 0) > (heading.y ?? 0)) ?? null;
+    }
 
-    const bodyH =
-        measureTextHeight({
-            text: body.text ?? body.content ?? "",
-            width: body.w ?? body.width ?? 700,
-            fontSize: body.fontSize,
-            fontWeight: body.fontWeight,
-            lineHeight: body.lineHeight ?? 1.2,
-            maxLines: rules?.bodyMaxLines,
-            fontFamily: body.fontFamily,
-        }) + extra;
+    return texts[1] ?? null;
+}
 
-    body.h = bodyH;
+function findExtrasElements(slide: any, slideIndex: number): any[] {
+    const els = getAllElements(slide);
+    const texts = els.filter((e: any) => e?.type === "text").sort((a: any, b: any) => (a.y ?? 0) - (b.y ?? 0));
 
-    if (bullets) {
-        bullets.y = body.y + bodyH + gap;
+    const heading = findHeadingElement(slide, slideIndex);
+    const support = findSupportElement(slide, slideIndex);
 
-        bullets.h =
-            measureTextHeight({
-                text: bullets.text ?? bullets.content ?? "",
-                width: bullets.w ?? bullets.width ?? 700,
-                fontSize: bullets.fontSize,
-                fontWeight: bullets.fontWeight,
-                lineHeight: bullets.lineHeight ?? 1.3,
-                maxLines: rules?.bulletsMaxLines,
-                fontFamily: bullets.fontFamily,
-            }) + extra;
+    return texts.filter((e: any) => e !== heading && e !== support && (e.fontSize ?? 0) < 40);
+}
+
+// ─── Flow Engine ──────────────────────────────────────────────────────────────
+
+const GAP_HEADING_SUPPORT = 28;
+const GAP_SUPPORT_EXTRAS = 20;
+const GAP_BETWEEN_EXTRAS = 12;
+const PADDING_EXTRA = 6;
+
+function flowSlide(slide: any, slideIndex: number) {
+    const heading = findHeadingElement(slide, slideIndex);
+    const support = findSupportElement(slide, slideIndex);
+    const extras = findExtrasElements(slide, slideIndex);
+
+    if (!heading) return; // Sem heading, nada a fazer
+
+    // Medir heading
+    const headingH = measureTextHeight({
+        text: heading.text ?? heading.content ?? "",
+        width: heading.width ?? heading.w ?? 800,
+        fontSize: heading.fontSize ?? 72,
+        fontFamily: heading.fontFamily ?? "Sora",
+        fontWeight: 700,
+        lineHeight: heading.lineHeight ?? 1.0,
+        maxLines: 3,
+    }) + PADDING_EXTRA;
+
+    // Atualizar h do heading
+    heading.h = headingH;
+
+    if (!support) return;
+
+    // Posicionar support abaixo do heading
+    const newSupportY = (heading.y ?? 0) + headingH + GAP_HEADING_SUPPORT;
+
+    // Só mover para baixo, nunca para cima (evitar sobreposição com heading)
+    if (newSupportY > (support.y ?? 0)) {
+        support.y = newSupportY;
+    }
+
+    // Medir support
+    const supportH = measureTextHeight({
+        text: support.text ?? support.content ?? "",
+        width: support.width ?? support.w ?? 800,
+        fontSize: support.fontSize ?? 28,
+        fontFamily: support.fontFamily ?? "Manrope",
+        fontWeight: 400,
+        lineHeight: support.lineHeight ?? 1.38,
+    }) + PADDING_EXTRA;
+
+    support.h = supportH;
+
+    // Posicionar extras abaixo do support
+    let currentY = support.y + supportH + GAP_SUPPORT_EXTRAS;
+
+    for (const extra of extras) {
+        const extraH = measureTextHeight({
+            text: extra.text ?? extra.content ?? "",
+            width: extra.width ?? extra.w ?? 800,
+            fontSize: extra.fontSize ?? 24,
+            fontFamily: extra.fontFamily ?? "Manrope",
+            fontWeight: 400,
+            lineHeight: extra.lineHeight ?? 1.3,
+        }) + PADDING_EXTRA;
+
+        if (currentY > (extra.y ?? 0)) {
+            extra.y = currentY;
+        }
+
+        extra.h = extraH;
+        currentY = extra.y + extraH + GAP_BETWEEN_EXTRAS;
     }
 }
 
-function applyAutoLayout(carousel: any) {
-    // structuredClone é ótimo no browser moderno; se precisar suporte, troca por deep clone seu
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+function applyAutoLayout(carousel: any): any {
     const next = structuredClone(carousel);
 
-    for (const slide of next.slides ?? []) {
-        if (slide?.role === "cover") flow(slide, 28, { headlineMaxLines: 3 });
-        else if (slide?.role === "cta") flow(slide, 24, { headlineMaxLines: 2 });
-        else flow(slide, 24, { headlineMaxLines: 2 });
+    for (let i = 0; i < (next.slides ?? []).length; i++) {
+        const slide = next.slides[i];
+        flowSlide(slide, i);
     }
 
     return next;
 }
 
-/**
- * Espera as fontes carregarem antes de medir (evita layout “mudar sozinho” depois).
- */
-export async function applyAutoLayoutAsync(carousel: any) {
+export async function applyAutoLayoutAsync(carousel: any): Promise<any> {
     if (typeof document !== "undefined" && (document as any).fonts?.ready) {
         try {
             await (document as any).fonts.ready;
         } catch {
-            // ignora: se falhar, mede mesmo assim
+            // ignorar falha no carregamento de fontes
         }
     }
     return applyAutoLayout(carousel);
 }
+
+// Exportar também a versão síncrona para uso interno
+export { applyAutoLayout };

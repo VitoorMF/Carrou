@@ -1,0 +1,120 @@
+.template_playground {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    background: linear-gradient(160deg, #f4f7fb 0%, #eaf0f8 100%);
+    color: #111827;
+}
+
+.playground_panel {
+    border-right: 1px solid #d4dbe7;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(8px);
+}
+
+.playground_panel h1 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.playground_panel p {
+    margin: 0 0 8px;
+    color: #4b5563;
+}
+
+.playground_panel label {
+    font-size: 13px;
+    font-weight: 700;
+    margin-top: 8px;
+}
+
+.playground_panel select,
+.playground_panel input,
+.playground_panel textarea {
+    width: 100%;
+    border: 1px solid #c7d2e5;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fff;
+}
+
+.playground_panel button {
+    margin-top: 8px;
+    border: 0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    background: #0f766e;
+    color: #fff;
+    cursor: pointer;
+}
+
+.playground_panel button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.playground_error {
+    margin-top: 4px;
+    color: #b91c1c;
+    font-size: 13px;
+}
+
+.slide_controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.slide_controls span {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.slide_editor {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.slide_json {
+    margin: 0;
+    margin-top: 8px;
+    padding: 10px;
+    height: 280px;
+    overflow: auto;
+    border-radius: 10px;
+    border: 1px solid #d4dbe7;
+    background: #0b1220;
+    color: #e2e8f0;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.playground_stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+}
+
+@media (max-width: 980px) {
+    .template_playground {
+        grid-template-columns: 1fr;
+    }
+
+    .playground_panel {
+        border-right: 0;
+        border-bottom: 1px solid #d4dbe7;
+    }
+}

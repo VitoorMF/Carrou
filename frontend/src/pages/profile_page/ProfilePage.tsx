@@ -7,6 +7,7 @@ import { db, storage } from "../../services/firebase";
 import { useAuth } from "../../lib/hooks/useAuth";
 import { AppSidebar } from "../../components/app_sidebar/AppSidebar";
 import "./ProfilePage.css";
+import type { UserData } from "../../types/userData";
 
 type UserProfileDoc = {
     displayName?: string;
@@ -25,6 +26,8 @@ export default function ProfilePage() {
     const [specialization, setSpecialization] = useState("");
     const [tokensBalance, setTokensBalance] = useState(0);
     const [email, setEmail] = useState("");
+    const [userData, setUserData] = useState<UserData | null>(null);
+
 
     const [saving, setSaving] = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -67,6 +70,27 @@ export default function ProfilePage() {
 
         return () => unsub();
     }, [user, loading, navigate]);
+
+    useEffect(() => {
+        if (!user) {
+            setUserData(null);
+            return;
+        }
+
+        const unsub = onSnapshot(
+            doc(db, "users", user.uid),
+            (snap) => {
+                if (snap.exists()) {
+                    setUserData(snap.data() as UserData);
+                }
+            },
+            (err) => {
+                console.error("Erro ao carregar dados do usuário:", err);
+            }
+        );
+
+        return () => unsub();
+    }, [user]);
 
     async function handleSaveProfile() {
         if (!user) {
@@ -183,7 +207,10 @@ export default function ProfilePage() {
 
     return (
         <div className="app_shell">
-            <AppSidebar avatarUrl={avatarUrl || user?.photoURL || null} initials={initials} />
+            <AppSidebar
+                avatarUrl={userData?.avatarUrl ?? null}
+                initials={userData?.displayName?.[0]?.toUpperCase() ?? user?.displayName?.[0]?.toUpperCase() ?? "U"}
+            />
 
             <main className="app_shell_main">
                 <div className="profile_page">

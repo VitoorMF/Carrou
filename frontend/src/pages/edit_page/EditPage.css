@@ -16,28 +16,108 @@ body,
 }
 
 .editor_topbar {
+    position: relative;
+    isolation: isolate;
     display: grid;
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 12px;
-    padding: 0 16px;
-    border-bottom: 1px solid #dde2ef;
-    background: rgba(255, 255, 255, 0.86);
-    backdrop-filter: blur(8px);
+    min-height: 64px;
+    padding: 8px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    background:
+        radial-gradient(1200px 340px at 14% -220%, rgba(247, 126, 88, 0.28), transparent 62%),
+        radial-gradient(950px 300px at 90% -160%, rgba(253, 186, 116, 0.24), transparent 64%),
+        linear-gradient(180deg, #2a2f38 0%, #1b1f26 100%);
+    box-shadow:
+        inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+        0 12px 30px rgba(12, 16, 26, 0.35);
+    backdrop-filter: blur(12px) saturate(130%);
+}
+
+.editor_topbar::after {
+    content: "";
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(247, 126, 88, 0.6) 52%, transparent 100%);
+    opacity: 0.55;
+    pointer-events: none;
 }
 
 .topbar_group {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     gap: 10px;
 }
 
 .topbar_center {
+    justify-self: center;
     justify-content: center;
 }
 
 .topbar_right {
+    justify-self: end;
     justify-content: flex-end;
+}
+
+.topbar_zoom_cluster {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.editor_topbar .back_button,
+.editor_topbar .secondary_button,
+.editor_topbar .chip_button {
+    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
+    color: #f7f9ff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.editor_topbar .back_button:hover,
+.editor_topbar .secondary_button:hover,
+.editor_topbar .chip_button:hover {
+    border-color: rgba(247, 126, 88, 0.55);
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.editor_topbar .primary_button {
+    border-color: rgba(247, 126, 88, 0.95);
+    background: linear-gradient(180deg, #f99776 0%, #f77e58 100%);
+    color: #fff;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        0 8px 18px rgba(247, 126, 88, 0.35);
+}
+
+.editor_topbar .project_title {
+    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+    color: #f7f9ff;
+    font-size: 15px;
+    font-weight: 800;
+    width: min(360px, 38vw);
+    padding: 8px;
+}
+
+.editor_topbar .project_title::placeholder {
+    color: rgba(247, 249, 255, 0.55);
+}
+
+.editor_topbar .project_title:focus {
+    outline: 2px solid rgba(247, 126, 88, 0.32);
+    border-color: rgba(247, 126, 88, 0.72);
 }
 
 .back_button,

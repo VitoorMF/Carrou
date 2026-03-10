@@ -96,6 +96,35 @@ type El =
         listening?: boolean;
     }
     | {
+        type: "shape";
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+        name: "arrows" | "pillBadge" | "line" | "circle" | "blob" | "dots" | "wave" | "profileBadge";
+        color?: string;
+        opacity?: number;
+        scale?: number;
+        listening?: boolean;
+    }
+    | {
+        type: "profileCard";
+        variant?: "neutral" | "filled";
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+        user: {
+            name: string;
+            role?: string;
+            avatarSrc?: string;
+        };
+        accent?: string;
+        text: string;
+        opacity?: number;
+        listening?: boolean;
+    }
+    | {
         type: "glassCard";
         x: number;
         y: number;

@@ -7,9 +7,9 @@ import { initializeApp, getApps } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import cors from "cors";
 
-import { planCreativeDirection } from "./ai/planner";
 import { generateCarouselJson } from "./ai/generator";
 import { normalizeCarousel } from "./ai/normalize";
+import { findTemplateById, inferTemplateFromPrompt } from "./ai/templateCatalog";
 
 const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 const corsHandler = cors({ origin: true });
@@ -194,31 +194,23 @@ export const generateCarousel = onRequest(
                 });
                 logger.info("OpenAI client criado");
 
-                let creativeDirection;
-                try {
-                    creativeDirection = await planCreativeDirection({
-                        openai,
-                        userPrompt: prompt,
-                        model: "gpt-4o-mini",
-                    });
-                } catch (error: any) {
-                    const detail = extractProviderErrorMessage(error);
-                    logger.error("planner falhou", { detail, raw: error });
-                    throw new Error(`Falha no planner: ${detail}`);
-                }
-                logger.info("planner concluído", {
+                const requestedTemplate = findTemplateById(templateId);
+                const inferredTemplate = inferTemplateFromPrompt(prompt);
+                const selectedTemplate = requestedTemplate ?? inferredTemplate;
+                logger.info("template resolvido", {
                     ms: Date.now() - t0,
-                    creativeDirection,
+                    requestedTemplateId: templateId ?? null,
+                    selectedTemplateId: selectedTemplate.id,
                 });
 
                 const t1 = Date.now();
 
-                let rawCarousel;
+                let contentCarousel;
                 try {
-                    rawCarousel = await generateCarouselJson({
+                    contentCarousel = await generateCarouselJson({
                         openai,
                         userPrompt: prompt,
-                        creativeDirection,
+                        selectedTemplateLabel: selectedTemplate.label,
                         model: "gpt-4o-mini",
                     });
                 } catch (error: any) {
@@ -228,12 +220,12 @@ export const generateCarousel = onRequest(
                 }
                 logger.info("generator concluído", {
                     ms: Date.now() - t1,
-                    slideCount: rawCarousel.slides?.length ?? null,
+                    slideCount: contentCarousel.slides?.length ?? null,
                 });
 
-                const normalizedCarousel = normalizeCarousel(rawCarousel, creativeDirection, {
-                    templateId,
-                    theme,
+                const normalizedCarousel = normalizeCarousel(contentCarousel, {
+                    prompt,
+                    templateId: selectedTemplate.id,
                 });
 
                 const editorCarousel = {
@@ -248,6 +240,7 @@ export const generateCarousel = onRequest(
                 logger.info("normalize concluído", {
                     slideCount: editorCarousel.slides.length,
                     title: editorCarousel.meta?.title ?? null,
+                    selectedTemplateId: normalizedCarousel.selectedTemplateId,
                 });
 
                 logger.info("antes do firestore.add");
@@ -257,12 +250,12 @@ export const generateCarousel = onRequest(
                     status: "ready",
                     meta: safeMeta,
                     ai: {
-                        generator: "generateCarousel:semantic-v1",
+                        generator: "generateCarousel:simple-v2",
                         prompt,
-                        templateId: templateId ?? null,
+                        templateId: normalizedCarousel.selectedTemplateId,
                         theme: theme ?? null,
-                        creativeDirection,
-                        raw: stripUndefinedDeep(rawCarousel),
+                        content: stripUndefinedDeep(contentCarousel),
+                        raw: stripUndefinedDeep(contentCarousel),
                         normalized: safeNormalizedCarousel,
                     },
                     slides: safeEditorSlides,

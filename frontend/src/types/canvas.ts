@@ -13,7 +13,7 @@ export type IconName =
     | "idea"
     | "growth";
 
-export type ShapeName = "dots" | "blob" | "wave" | "line" | "circle";
+export type ShapeName = "dots" | "blob" | "wave" | "line" | "circle" | "arrows" | "pillBadge";
 
 export type CanvasTextElement = {
     id: string;

@@ -4,6 +4,7 @@ import * as admin from "firebase-admin";
 import OpenAI from "openai";
 import cors from "cors";
 import { defineSecret } from "firebase-functions/params";
+import { randomUUID } from "crypto";
 
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -101,9 +102,50 @@ export const generateImageForElement = onRequest(
                     return res.status(400).json({ ok: false, error: "Element is not image/backgroundImage" });
                 }
 
+                const path = `projects/${projectId}/slides/${slideId}/${elementId}.png`;
+                const file = bucket.file(path);
+
                 // idempotente
                 if (el.url || el.src) {
-                    return res.json({ ok: true, src: el.url ?? el.src, cached: true });
+                    const [exists] = await file.exists();
+                    const currentSrc = String(el.url ?? el.src ?? "");
+
+                    if (!exists) {
+                        return res.json({ ok: true, src: currentSrc, cached: true });
+                    }
+
+                    const [meta] = await file.getMetadata();
+                    const rawTokens = meta?.metadata?.firebaseStorageDownloadTokens as string | undefined;
+                    const token = rawTokens?.split(",")[0]?.trim() || randomUUID();
+
+                    if (!rawTokens) {
+                        await file.setMetadata({
+                            cacheControl: meta.cacheControl ?? "public, max-age=31536000",
+                            metadata: {
+                                ...(meta.metadata ?? {}),
+                                firebaseStorageDownloadTokens: token,
+                            },
+                        });
+                    }
+
+                    const encodedPath = encodeURIComponent(path);
+                    const stableSrc = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${token}`;
+
+                    if (currentSrc !== stableSrc) {
+                        writeElement(slide, elRef, {
+                            ...el,
+                            url: stableSrc,
+                            src: stableSrc,
+                            status: "ready",
+                        });
+
+                        await ref.update({
+                            slides,
+                            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                        });
+                    }
+
+                    return res.json({ ok: true, src: stableSrc, cached: true });
                 }
 
                 if (!el.prompt) {
@@ -133,32 +175,23 @@ export const generateImageForElement = onRequest(
 
                 const buffer = Buffer.from(b64, "base64");
 
-                const path = `projects/${projectId}/slides/${slideId}/${elementId}.png`;
-                const file = bucket.file(path);
+                const downloadToken = randomUUID();
 
                 await file.save(buffer, {
                     resumable: false,
                     contentType: "image/png",
-                    metadata: { cacheControl: "public, max-age=31536000" },
+                    metadata: {
+                        cacheControl: "public, max-age=31536000",
+                        metadata: {
+                            firebaseStorageDownloadTokens: downloadToken,
+                        },
+                    },
                 });
 
-                // Try to return a publicly accessible URL. Prefer signed URL, fallback to making file public,
-                // finally fallback to the storage REST URL (may be blocked by rules).
-                let src = "";
-
-                try {
-                    const [signedUrl] = await file.getSignedUrl({ action: "read", expires: "03-01-2505" });
-                    src = signedUrl;
-                } catch (e) {
-                    try {
-                        await file.makePublic();
-                        src = `https://storage.googleapis.com/${bucket.name}/${path}`;
-                    } catch (e2) {
-                        const bucketName = bucket.name;
-                        const encodedPath = encodeURIComponent(path);
-                        src = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media`;
-                    }
-                }
+                // Firebase download URL com token funciona mesmo com Storage Rules fechadas.
+                const bucketName = bucket.name;
+                const encodedPath = encodeURIComponent(path);
+                const src = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${downloadToken}`;
 
 
                 // status ready + src

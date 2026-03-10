@@ -1,17 +1,10 @@
-import type { Carousel, CarouselDraft, CreativeDirection } from "./schemas";
-import { applyTemplateOverrides, findTemplateById, getDefaultTemplate, inferTemplateFromCreativeDirection, type TemplateId } from "./templateCatalog";
+import type { Carousel, CarouselDraft } from "./schemas";
+import { findTemplateById, getDefaultTemplate, inferTemplateFromPrompt, type TemplateCatalogItem, type TemplateId } from "./templateCatalog";
 import { buildTemplateElements } from "./normalizers";
-import { resolvePalette, resolveSlideRole, sanitizeImageElements, truncateText, type SlideCopy } from "./normalizers/shared";
+import { resolvePaletteByTemplate, resolveSlideRole, sanitizeImageElements, truncateText, type SlideCopy } from "./normalizers/shared";
 
-function inferTemplateId(creativeDirection: CreativeDirection, requested?: string | null): TemplateId {
-    const selected = findTemplateById(requested);
-    if (selected) return selected.id;
-    return inferTemplateFromCreativeDirection(creativeDirection).id;
-}
-
-function resolveTheme(requested: string | null | undefined, templateId: TemplateId): string {
-    if (requested && String(requested).trim()) return String(requested).trim();
-    return findTemplateById(templateId)?.defaultTheme ?? getDefaultTemplate().defaultTheme;
+function resolveTemplate(prompt: string, requestedTemplateId?: string | null): TemplateCatalogItem {
+    return findTemplateById(requestedTemplateId) ?? inferTemplateFromPrompt(prompt) ?? getDefaultTemplate();
 }
 
 function toCopy(slide: CarouselDraft["slides"][number]): SlideCopy {
@@ -27,7 +20,7 @@ function toCopy(slide: CarouselDraft["slides"][number]): SlideCopy {
 }
 
 function injectImagePrompt(
-    elements: Carousel["slides"][number]["elements"],
+    elements: any[],
     imagePrompt?: string
 ) {
     if (!imagePrompt) return elements;
@@ -48,13 +41,10 @@ function injectImagePrompt(
 
 export function normalizeCarousel(
     draft: CarouselDraft,
-    creativeDirection: CreativeDirection,
-    options: { templateId?: string | null; theme?: string | null } = {}
-): Carousel {
-    const templateId = inferTemplateId(creativeDirection, options.templateId);
-    const effectiveDirection = applyTemplateOverrides(creativeDirection, findTemplateById(templateId) ?? getDefaultTemplate());
-    const palette = resolvePalette(effectiveDirection);
-    const theme = resolveTheme(options.theme, templateId);
+    options: { prompt: string; templateId?: string | null }
+): Carousel & { selectedTemplateId: TemplateId } {
+    const template = resolveTemplate(options.prompt, options.templateId);
+    const palette = resolvePaletteByTemplate(template.id);
 
     const slides = draft.slides.slice(0, 8).map((slide, index, all) => {
         const role = slide.role === "cover"
@@ -64,27 +54,26 @@ export function normalizeCarousel(
                 : resolveSlideRole(index, all.length);
 
         const elements = buildTemplateElements({
-            templateId,
+            templateId: template.id,
             slideIndex: index,
             slideCount: all.length,
             role,
             copy: toCopy(slide),
             palette,
-            creativeDirection: effectiveDirection,
-            theme,
         });
 
         return {
             id: slide.id || `s${index + 1}`,
-            elements: injectImagePrompt(elements, slide.imagePrompt),
+            elements: injectImagePrompt(elements as any[], slide.imagePrompt) as Carousel["slides"][number]["elements"],
         };
     });
 
     return {
+        selectedTemplateId: template.id,
         meta: {
             title: truncateText(draft.meta.title, 120),
-            objective: truncateText(draft.meta.objective || creativeDirection.goal, 80),
-            style: templateId,
+            objective: truncateText(draft.meta.objective || "engajar", 80),
+            style: template.id,
             palette,
         },
         slides,
