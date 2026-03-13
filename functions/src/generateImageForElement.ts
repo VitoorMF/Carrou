@@ -39,7 +39,10 @@ export const generateImageForElement = onRequest(
                 if (!snap.exists) return res.status(404).json({ ok: false, error: "Project not found" });
 
                 const project = snap.data() as any;
-                const slides = project.slides ?? [];
+                const renderCarousel = project?.renderCarousel ?? null;
+                const slides = Array.isArray(renderCarousel?.slides)
+                    ? renderCarousel.slides
+                    : (project.slides ?? []);
 
                 const sIndex = slides.findIndex((s: any) => s.id === slideId);
                 if (sIndex < 0) return res.status(404).json({ ok: false, error: "Slide not found" });
@@ -139,7 +142,13 @@ export const generateImageForElement = onRequest(
                             status: "ready",
                         });
 
+                        const nextRenderCarousel = renderCarousel
+                            ? { ...renderCarousel, slides }
+                            : null;
+
                         await ref.update({
+                            ...(nextRenderCarousel ? { renderCarousel: nextRenderCarousel } : {}),
+                            // Compat legado
                             slides,
                             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                         });
@@ -156,6 +165,8 @@ export const generateImageForElement = onRequest(
                 writeElement(slide, elRef, { ...el, status: "pending" });
 
                 await ref.update({
+                    ...(renderCarousel ? { renderCarousel: { ...renderCarousel, slides } } : {}),
+                    // Compat legado
                     slides,
                     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 });
@@ -210,6 +221,8 @@ export const generateImageForElement = onRequest(
                 }
 
                 await ref.update({
+                    ...(renderCarousel ? { renderCarousel: { ...renderCarousel, slides } } : {}),
+                    // Compat legado
                     slides,
                     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 });

@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { onSnapshot, doc } from "firebase/firestore";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { onSnapshot, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useParams } from "react-router-dom";
-import { applyAutoLayoutAsync } from "../../editor/autoLayout";
+import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { Canvas, type CanvasRef } from "../../editor/canvas/Canvas";
 import { type Carousel } from "../../editor/canvas/types";
 import { router } from "../../router";
-import { db } from "../../services/firebase";
+import { auth, db, storage } from "../../services/firebase";
 import "./EditPage.css";
 
 type EditorElement = {
@@ -26,30 +26,116 @@ type EditorSlide = {
     background?: { type: "solid"; value: string };
 };
 
+type InspectorElementEntry = {
+    id: string;
+    type: string;
+    name?: string;
+    layer: "background" | "atmosphere" | "content" | "ui" | "flat";
+};
+
+type EditableElementType = "text" | "image";
+type PaletteKey = "bg" | "text" | "muted" | "accent" | "accent2";
+type EditorPalette = {
+    bg: string;
+    text: string;
+    muted: string;
+    accent: string;
+    accent2: string;
+};
+type PalettePreset = {
+    id: string;
+    label: string;
+    description: string;
+    palette: EditorPalette;
+};
+
 const MIN_ZOOM = 0.35;
 const MAX_ZOOM = 0.9;
 const ZOOM_STEP = 0.05;
+const DOC_W = 1080;
+const DOC_H = 1350;
+const STAGE_PADDING = 40;
+const PALETTE_PRESETS: PalettePreset[] = [
+    {
+        id: "classic-light",
+        label: "Classic",
+        description: "Claro e equilibrado",
+        palette: {
+            bg: "#F8FAFC",
+            text: "#111827",
+            muted: "#6B7280",
+            accent: "#2563EB",
+            accent2: "#0F766E",
+        },
+    },
+    {
+        id: "dark",
+        label: "Dark",
+        description: "Contraste alto",
+        palette: {
+            bg: "#0F172A",
+            text: "#F8FAFC",
+            muted: "#94A3B8",
+            accent: "#38BDF8",
+            accent2: "#F97316",
+        },
+    },
+    {
+        id: "warm",
+        label: "Warm",
+        description: "Mais humano e editorial",
+        palette: {
+            bg: "#FFF7ED",
+            text: "#431407",
+            muted: "#9A3412",
+            accent: "#EA580C",
+            accent2: "#C2410C",
+        },
+    },
+    {
+        id: "bold",
+        label: "Bold",
+        description: "Mais energia visual",
+        palette: {
+            bg: "#FFF7F3",
+            text: "#1F2937",
+            muted: "#6B7280",
+            accent: "#DC2626",
+            accent2: "#7C3AED",
+        },
+    },
+];
 const USE_FIREBASE_EMULATORS = import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true";
 const GENERATE_IMAGE_ENDPOINT = USE_FIREBASE_EMULATORS
     ? "http://127.0.0.1:5001/carrosselize/us-central1/generateImageForElement"
     : "https://us-central1-carrosselize.cloudfunctions.net/generateImageForElement";
+const EXPORT_ZIP_ENDPOINT = USE_FIREBASE_EMULATORS
+    ? "http://127.0.0.1:5001/carrosselize/southamerica-east1/exportCarouselZip"
+    : "https://southamerica-east1-carrosselize.cloudfunctions.net/exportCarouselZip";
 
 export default function EditPage() {
     const { projectId } = useParams();
     const canvasRef = useRef<CanvasRef>(null);
+    const stageContainerRef = useRef<HTMLDivElement | null>(null);
+    const imagePickerRef = useRef<HTMLInputElement | null>(null);
+    const persistTimeoutRef = useRef<number | null>(null);
 
     const [project, setProject] = useState<any>(null);
     const [projectName, setProjectName] = useState("Projeto sem nome");
-    const [carouselData, setCarouselData] = useState<Carousel | null>(null);
+    const [serverCarousel, setServerCarousel] = useState<Carousel | null>(null);
+    const [originalPalette, setOriginalPalette] = useState<EditorPalette | null>(null);
 
     const [slides, setSlides] = useState<EditorSlide[]>([{ id: crypto.randomUUID(), name: "Slide 1", elements: [] }]);
     const [activeSlideId, setActiveSlideId] = useState(slides[0].id);
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
 
     const [zoom, setZoom] = useState(0.56);
+    const [hasManualZoom, setHasManualZoom] = useState(false);
+    const [liveElementPosition, setLiveElementPosition] = useState<{ id: string; x: number; y: number } | null>(null);
+    const [isAdvancedPaletteOpen, setIsAdvancedPaletteOpen] = useState(false);
     const [isLoadingProject, setIsLoadingProject] = useState(true);
-    const [isReapplyingLayout, setIsReapplyingLayout] = useState(false);
     const [isGeneratingImages, setIsGeneratingImages] = useState(false);
+    const [isExportingAllSlides, setIsExportingAllSlides] = useState(false);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -64,7 +150,8 @@ export default function EditPage() {
     }, [slides, activeSlideId]);
 
     function updateSlidesFromCarousel(nextCarousel: Carousel) {
-        setCarouselData(nextCarousel);
+        setServerCarousel(nextCarousel);
+        setOriginalPalette(getResolvedPalette(nextCarousel.meta.palette));
         const editorSlides = firestoreSlidesToEditorSlides(nextCarousel.slides as any[]);
         const fallbackSlideId = editorSlides[0]?.id ?? crypto.randomUUID();
 
@@ -74,7 +161,45 @@ export default function EditPage() {
             return exists ? prev : fallbackSlideId;
         });
         setSelectedElementId(null);
+        setLiveElementPosition(null);
     }
+
+    const activeInspectorElements = useMemo(
+        () => getInspectorElements(serverCarousel, activeSlideIndex),
+        [serverCarousel, activeSlideIndex]
+    );
+    const selectedEditableElement = useMemo(
+        () => activeSlide?.elements.find((element) => element.id === selectedElementId) ?? null,
+        [activeSlide, selectedElementId]
+    );
+    const selectedElementPosition = useMemo(() => {
+        if (!selectedEditableElement) {
+            return null;
+        }
+
+        if (liveElementPosition?.id === selectedEditableElement.id) {
+            return { x: liveElementPosition.x, y: liveElementPosition.y };
+        }
+
+        return {
+            x: Number(selectedEditableElement.x ?? 0),
+            y: Number(selectedEditableElement.y ?? 0),
+        };
+    }, [selectedEditableElement, liveElementPosition]);
+    const activePalette = useMemo(
+        () => getResolvedPalette(serverCarousel?.meta?.palette),
+        [serverCarousel]
+    );
+    const activePalettePresetId = useMemo(
+        () => {
+            if (originalPalette && palettesEqual(originalPalette, activePalette)) {
+                return "original";
+            }
+
+            return PALETTE_PRESETS.find((preset) => palettesEqual(preset.palette, activePalette))?.id ?? null;
+        },
+        [activePalette, originalPalette]
+    );
 
     useEffect(() => {
         if (!projectId) {
@@ -90,7 +215,7 @@ export default function EditPage() {
         const unsub = onSnapshot(ref, async (snap) => {
             if (!snap.exists()) {
                 setProject(null);
-                setCarouselData(null);
+                setServerCarousel(null);
                 setIsLoadingProject(false);
                 setErrorMessage("Esse projeto não existe mais.");
                 return;
@@ -102,8 +227,7 @@ export default function EditPage() {
                 setProjectName(data?.meta?.title ?? "Projeto sem nome");
 
                 const raw = projectDocToCarousel(data);
-                const computed = await applyAutoLayoutAsync(raw);
-                updateSlidesFromCarousel(computed);
+                updateSlidesFromCarousel(raw);
                 setIsLoadingProject(false);
             } catch (error) {
                 console.error(error);
@@ -114,6 +238,14 @@ export default function EditPage() {
 
         return () => unsub();
     }, [projectId]);
+
+    useEffect(() => {
+        return () => {
+            if (persistTimeoutRef.current !== null) {
+                window.clearTimeout(persistTimeoutRef.current);
+            }
+        };
+    }, []);
 
     useEffect(() => {
         function onKeyDown(event: KeyboardEvent) {
@@ -138,15 +270,54 @@ export default function EditPage() {
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [slides, activeSlideId, activeSlideIndex]);
 
+    useEffect(() => {
+        const container = stageContainerRef.current;
+        if (!container) {
+            return;
+        }
+
+        function applyResponsiveZoom() {
+            if (hasManualZoom) {
+                return;
+            }
+
+            const nextZoom = computeResponsiveZoom(container as any);
+            setZoom((current) => (
+                Math.abs(current - nextZoom) < 0.01 ? current : nextZoom
+            ));
+        }
+
+        applyResponsiveZoom();
+
+        const observer = new ResizeObserver(() => {
+            applyResponsiveZoom();
+        });
+
+        observer.observe(container);
+        window.addEventListener("resize", applyResponsiveZoom);
+
+        return () => {
+            observer.disconnect();
+            window.removeEventListener("resize", applyResponsiveZoom);
+        };
+    }, [hasManualZoom]);
+
     function zoomIn() {
+        setHasManualZoom(true);
         setZoom((prev) => Math.min(MAX_ZOOM, Number((prev + ZOOM_STEP).toFixed(2))));
     }
 
     function zoomOut() {
+        setHasManualZoom(true);
         setZoom((prev) => Math.max(MIN_ZOOM, Number((prev - ZOOM_STEP).toFixed(2))));
     }
 
     function resetZoom() {
+        setHasManualZoom(false);
+        if (stageContainerRef.current) {
+            setZoom(computeResponsiveZoom(stageContainerRef.current));
+            return;
+        }
         setZoom(0.56);
     }
 
@@ -158,11 +329,142 @@ export default function EditPage() {
 
         setActiveSlideId(next.id);
         setSelectedElementId(null);
+        setLiveElementPosition(null);
     }
 
     function exportActiveSlide() {
-        canvasRef.current?.exportPNG();
-        setStatusMessage(`Slide ${activeSlideIndex + 1} exportado.`);
+        void exportSingleSlide();
+    }
+
+    async function exportSingleSlide() {
+        if (!serverCarousel || isExportingAllSlides) {
+            return;
+        }
+
+        try {
+            const token = await auth.currentUser?.getIdToken();
+            if (!token) {
+                throw new Error("Usuário não autenticado.");
+            }
+
+            setErrorMessage(null);
+            setStatusMessage(`Exportando slide ${activeSlideIndex + 1}...`);
+
+            const response = await fetch(EXPORT_ZIP_ENDPOINT, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ projectId, slideIndex: activeSlideIndex }),
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const blob = await response.blob();
+            const fileName = slugifyFileName(projectName || "carrossel") || "carrossel";
+            downloadBlob(blob, `${fileName}-slide-${String(activeSlideIndex + 1).padStart(2, "0")}.png`);
+            setStatusMessage(`Slide ${activeSlideIndex + 1} exportado.`);
+        } catch (error) {
+            console.error(error);
+            setErrorMessage("Não foi possível exportar o slide.");
+        }
+    }
+
+    async function exportAllSlides() {
+        if (!serverCarousel || serverCarousel.slides.length === 0 || isExportingAllSlides) {
+            return;
+        }
+
+        setIsExportingAllSlides(true);
+        setErrorMessage(null);
+        setStatusMessage("Preparando ZIP...");
+
+        try {
+            const token = await auth.currentUser?.getIdToken();
+            if (!token) {
+                throw new Error("Usuário não autenticado.");
+            }
+
+            const response = await fetch(EXPORT_ZIP_ENDPOINT, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ projectId }),
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const blob = await response.blob();
+            const fileName = slugifyFileName(projectName || "carrossel") || "carrossel";
+            downloadBlob(blob, `${fileName}.zip`);
+            setStatusMessage("ZIP com todos os slides baixado.");
+        } catch (error) {
+            console.error(error);
+            setErrorMessage("Não foi possível exportar todos os slides.");
+        } finally {
+            setIsExportingAllSlides(false);
+        }
+    }
+
+    function updateEditableElement(
+        elementId: string,
+        patch: Partial<EditorElement>,
+        options?: { persistDelayMs?: number | null }
+    ) {
+        setSlides((prev) =>
+            prev.map((slide) =>
+                slide.id === activeSlideId
+                    ? {
+                        ...slide,
+                        elements: slide.elements.map((element) =>
+                            element.id === elementId ? { ...element, ...patch } : element
+                        ),
+                    }
+                    : slide
+            )
+        );
+
+        setLiveElementPosition(null);
+        setServerCarousel((current) => {
+            const nextCarousel = updateCarouselElement(current, activeSlideId, elementId, patch);
+            if (nextCarousel && options?.persistDelayMs !== null && options?.persistDelayMs !== undefined) {
+                scheduleCarouselPersist(nextCarousel, options.persistDelayMs);
+            }
+            return nextCarousel;
+        });
+    }
+
+    async function persistCarousel(nextCarousel: Carousel) {
+        if (!projectId) {
+            return;
+        }
+
+        await updateDoc(doc(db, "projects", projectId), {
+            renderCarousel: nextCarousel,
+            slides: nextCarousel.slides,
+            updatedAt: serverTimestamp(),
+        });
+    }
+
+    function scheduleCarouselPersist(nextCarousel: Carousel, delayMs: number) {
+        if (persistTimeoutRef.current !== null) {
+            window.clearTimeout(persistTimeoutRef.current);
+        }
+
+        persistTimeoutRef.current = window.setTimeout(() => {
+            void persistCarousel(nextCarousel).catch((error) => {
+                console.error(error);
+                setErrorMessage("Não foi possível salvar alterações.");
+            });
+            persistTimeoutRef.current = null;
+        }, delayMs);
     }
 
     async function requestImageGeneration(projectIdValue: string, slideId: string, elementId: string) {
@@ -187,98 +489,140 @@ export default function EditPage() {
         return String(payload.src ?? "");
     }
 
-    async function generateMissingImagesForSlide(slide: EditorSlide) {
-        if (!projectId) {
+    async function generateSelectedImage() {
+        if (!projectId || !selectedEditableElement || selectedEditableElement.type !== "image") {
             return;
         }
 
-        const imagesToGenerate = slide.elements.filter((element): element is EditorElement & { prompt: string } => (
-            element.type === "image"
-            && typeof element.prompt === "string"
-            && element.prompt.trim().length > 0
-            && !element.src
-            && element.status !== "pending"
-        ));
-
-        if (imagesToGenerate.length === 0) {
-            setStatusMessage("Nenhuma imagem pendente neste slide.");
+        if (typeof selectedEditableElement.prompt !== "string" || selectedEditableElement.prompt.trim().length === 0) {
+            setErrorMessage("Esse elemento não tem prompt de imagem.");
             return;
         }
 
         setIsGeneratingImages(true);
-        setStatusMessage(`Gerando ${imagesToGenerate.length} imagem(ns) com IA...`);
+        setStatusMessage("Gerando imagem com IA...");
         setErrorMessage(null);
 
-        for (const element of imagesToGenerate) {
-            setSlides((prev) =>
-                prev.map((s) =>
-                    s.id === slide.id
-                        ? {
-                            ...s,
-                            elements: s.elements.map((ee) =>
-                                ee.id === element.id ? { ...ee, status: "pending" } : ee
-                            ),
-                        }
-                        : s
-                )
-            );
+        updateEditableElement(selectedEditableElement.id, { status: "pending" });
 
-            try {
-                const src = await requestImageGeneration(projectId, slide.id, element.id);
-
-                setSlides((prev) =>
-                    prev.map((s) =>
-                        s.id === slide.id
-                            ? {
-                                ...s,
-                                elements: s.elements.map((ee) =>
-                                    ee.id === element.id ? { ...ee, src, status: "ready" } : ee
-                                ),
-                            }
-                            : s
-                    )
-                );
-            } catch (error) {
-                console.error(error);
-                setSlides((prev) =>
-                    prev.map((s) =>
-                        s.id === slide.id
-                            ? {
-                                ...s,
-                                elements: s.elements.map((ee) =>
-                                    ee.id === element.id ? { ...ee, status: "error" } : ee
-                                ),
-                            }
-                            : s
-                    )
-                );
-                setErrorMessage("Uma ou mais imagens falharam ao gerar.");
-            }
+        try {
+            const src = await requestImageGeneration(projectId, activeSlideId, selectedEditableElement.id);
+            updateEditableElement(selectedEditableElement.id, { src, status: "ready" });
+            setStatusMessage("Imagem atualizada.");
+        } catch (error) {
+            console.error(error);
+            updateEditableElement(selectedEditableElement.id, { status: "error" });
+            setErrorMessage("Não foi possível gerar a imagem.");
+        } finally {
+            setIsGeneratingImages(false);
         }
-
-        setIsGeneratingImages(false);
-        setStatusMessage("Geração de imagens concluída.");
     }
 
-    async function reapplyLayout() {
-        if (!carouselData && !project) {
+    function openImagePicker() {
+        imagePickerRef.current?.click();
+    }
+
+    async function handleImageFileChange(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        if (!file || !projectId || !selectedEditableElement || selectedEditableElement.type !== "image") {
             return;
         }
 
         try {
-            setIsReapplyingLayout(true);
-            setErrorMessage(null);
+            const extension = getFileExtension(file);
+            const path = `projects/${projectId}/slides/${activeSlideId}/${selectedEditableElement.id}.${extension}`;
+            const fileRef = storageRef(storage, path);
 
-            const sourceCarousel = carouselData ?? projectDocToCarousel(project);
-            const computed = await applyAutoLayoutAsync(sourceCarousel);
-            updateSlidesFromCarousel(computed);
-            setStatusMessage("Layout reaplicado com sucesso.");
+            setErrorMessage(null);
+            setStatusMessage("Enviando imagem...");
+
+            await uploadBytes(fileRef, file, { contentType: file.type || "image/png" });
+            const src = await getDownloadURL(fileRef);
+
+            const nextCarousel = updateCarouselElement(
+                serverCarousel,
+                activeSlideId,
+                selectedEditableElement.id,
+                { src, status: "ready" }
+            );
+
+            updateEditableElement(selectedEditableElement.id, { src, status: "ready" });
+
+            if (nextCarousel) {
+                await persistCarousel(nextCarousel);
+            }
+
+            setStatusMessage("Imagem salva na galeria.");
         } catch (error) {
             console.error(error);
-            setErrorMessage("Não foi possível reaplicar layout.");
+            setErrorMessage("Não foi possível enviar a imagem.");
         } finally {
-            setIsReapplyingLayout(false);
+            event.target.value = "";
         }
+    }
+
+    function handleElementPositionChange(elementId: string, position: { x: number; y: number }) {
+        setLiveElementPosition(null);
+        updateEditableElement(elementId, position, { persistDelayMs: 0 });
+    }
+
+    function handleElementLivePositionChange(elementId: string, position: { x: number; y: number }) {
+        setLiveElementPosition({
+            id: elementId,
+            x: position.x,
+            y: position.y,
+        });
+    }
+
+    function handleTextContentChange(value: string) {
+        if (!selectedEditableElement || selectedEditableElement.type !== "text") {
+            return;
+        }
+
+        updateEditableElement(selectedEditableElement.id, { content: value }, { persistDelayMs: 500 });
+    }
+
+    function handleElementCoordinateChange(axis: "x" | "y", rawValue: string) {
+        if (!selectedEditableElement || !isEditableElementType(selectedEditableElement.type)) {
+            return;
+        }
+
+        const parsed = Number(rawValue);
+        if (!Number.isFinite(parsed)) {
+            return;
+        }
+
+        updateEditableElement(selectedEditableElement.id, { [axis]: parsed }, { persistDelayMs: 300 });
+    }
+
+    function handlePaletteChange(key: PaletteKey, value: string) {
+        setServerCarousel((current) => {
+            if (!current) {
+                return current;
+            }
+
+            const previousPalette = getResolvedPalette(current.meta.palette);
+            const nextPalette = {
+                ...previousPalette,
+                [key]: value,
+            };
+
+            const nextCarousel = recolorCarouselPalette(current, previousPalette, nextPalette);
+            scheduleCarouselPersist(nextCarousel, 300);
+            return nextCarousel;
+        });
+    }
+
+    function applyPalettePreset(palette: EditorPalette) {
+        setIsAdvancedPaletteOpen(false);
+        setServerCarousel((current) => {
+            if (!current) {
+                return current;
+            }
+
+            const previousPalette = getResolvedPalette(current.meta.palette);
+            return recolorCarouselPalette(current, previousPalette, palette);
+        });
     }
 
     return (
@@ -311,8 +655,13 @@ export default function EditPage() {
                 </div>
 
                 <div className="topbar_group topbar_right">
-                    <button className="secondary_button" type="button" onClick={reapplyLayout} disabled={isReapplyingLayout || isLoadingProject}>
-                        {isReapplyingLayout ? "Aplicando..." : "Reaplicar layout"}
+                    <button
+                        className="secondary_button"
+                        type="button"
+                        onClick={exportAllSlides}
+                        disabled={isExportingAllSlides || !serverCarousel}
+                    >
+                        {isExportingAllSlides ? "Baixando..." : "Baixar todos"}
                     </button>
                     <button className="primary_button" type="button" onClick={exportActiveSlide}>
                         Exportar PNG
@@ -341,16 +690,6 @@ export default function EditPage() {
                         ))}
                     </div>
 
-                    <div className="left_actions">
-                        <button
-                            className="secondary_button"
-                            type="button"
-                            onClick={() => activeSlide && generateMissingImagesForSlide(activeSlide)}
-                            disabled={isGeneratingImages || !activeSlide}
-                        >
-                            {isGeneratingImages ? "Gerando imagens..." : "Gerar imagens IA"}
-                        </button>
-                    </div>
                 </aside>
 
                 <main className="stage_section">
@@ -365,12 +704,19 @@ export default function EditPage() {
                         </div>
                     </div>
 
-                    <div className="stage_container">
+                    <div className="stage_container" ref={stageContainerRef}>
                         <Canvas
                             ref={canvasRef}
-                            carousel={carouselData}
+                            carousel={serverCarousel}
                             slideIndex={activeSlideIndex}
                             zoom={zoom}
+                            selectedElementId={selectedElementId}
+                            onSelectElement={(elementId) => {
+                                setSelectedElementId(elementId);
+                                setLiveElementPosition(null);
+                            }}
+                            onElementLivePositionChange={handleElementLivePositionChange}
+                            onElementPositionChange={handleElementPositionChange}
                             onExportPNG={() => {
                                 setStatusMessage(`Slide ${activeSlideIndex + 1} exportado em PNG.`);
                             }}
@@ -379,67 +725,271 @@ export default function EditPage() {
                 </main>
 
                 <aside className="panel panel_right">
-                    <div className="panel_title_row">
-                        <h3>Inspector</h3>
-                    </div>
+                    {selectedEditableElement && isEditableElementType(selectedEditableElement.type) ? (
+                        <div className="inspector_card">
+                            <label>Ajustes</label>
+                            <div className="editor_fields">
+                                {selectedEditableElement.type === "text" && (
+                                    <>
+                                        <span className="field_caption">Texto</span>
+                                        <textarea
+                                            className="editor_textarea"
+                                            value={String(selectedEditableElement.content ?? "")}
+                                            onChange={(event) => handleTextContentChange(event.target.value)}
+                                        />
+                                    </>
+                                )}
 
-                    <div className="inspector_card">
-                        <label>Projeto</label>
-                        <p>{projectName}</p>
-                    </div>
+                                {selectedEditableElement.type === "image" && (
+                                    <div className="image_actions_block">
+                                        <span className="field_caption">Imagem</span>
+                                        <div className="image_actions_row">
+                                            <button
+                                                type="button"
+                                                className="secondary_button image_action_button"
+                                                onClick={generateSelectedImage}
+                                                disabled={isGeneratingImages}
+                                            >
+                                                {isGeneratingImages ? "Gerando..." : "Gerar com IA"}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="secondary_button image_action_button"
+                                                onClick={openImagePicker}
+                                            >
+                                                Galeria
+                                            </button>
+                                        </div>
+                                        {typeof selectedEditableElement.prompt === "string"
+                                            && selectedEditableElement.prompt.trim().length > 0 ? (
+                                                <p className="image_prompt_hint">{selectedEditableElement.prompt}</p>
+                                            ) : null}
+                                    </div>
+                                )}
 
-                    <div className="inspector_card">
-                        <label>Slide ativo</label>
-                        <p>{activeSlide?.name ?? "Sem slide"}</p>
-                    </div>
+                                <div className="editor_grid">
+                                    <label className="editor_field">
+                                        <span>X</span>
+                                        <input
+                                            type="number"
+                                            value={Math.round(Number(selectedElementPosition?.x ?? 0))}
+                                            onChange={(event) => handleElementCoordinateChange("x", event.target.value)}
+                                        />
+                                    </label>
 
-                    <div className="inspector_card">
-                        <label>Elementos</label>
-                        <p>{activeSlide?.elements.length ?? 0} itens</p>
-                    </div>
+                                    <label className="editor_field">
+                                        <span>Y</span>
+                                        <input
+                                            type="number"
+                                            value={Math.round(Number(selectedElementPosition?.y ?? 0))}
+                                            onChange={(event) => handleElementCoordinateChange("y", event.target.value)}
+                                        />
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="inspector_card">
+                            <label>Paleta global</label>
+                            <div className="editor_fields">
+                                <div className="palette_preset_grid">
+                                    <button
+                                        type="button"
+                                        className={`palette_preset_card ${activePalettePresetId === "original" ? "is_active" : ""}`}
+                                        onClick={() => applyPalettePreset(originalPalette ?? activePalette)}
+                                    >
+                                        <span className="palette_preset_title">Original</span>
+                                        <span className="palette_preset_description">Como veio do template</span>
+                                        <span className="palette_preset_swatches">
+                                            {renderPaletteSwatches(originalPalette ?? activePalette)}
+                                        </span>
+                                    </button>
+
+                                    {PALETTE_PRESETS.map((preset) => (
+                                        <button
+                                            key={preset.id}
+                                            type="button"
+                                            className={`palette_preset_card ${activePalettePresetId === preset.id ? "is_active" : ""}`}
+                                            onClick={() => applyPalettePreset(preset.palette)}
+                                        >
+                                            <span className="palette_preset_title">{preset.label}</span>
+                                            <span className="palette_preset_description">{preset.description}</span>
+                                            <span className="palette_preset_swatches">
+                                                {renderPaletteSwatches(preset.palette)}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <button
+                                    type="button"
+                                    className="advanced_palette_toggle"
+                                    onClick={() => setIsAdvancedPaletteOpen((current) => !current)}
+                                >
+                                    {isAdvancedPaletteOpen ? "Fechar personalização" : "Personalizar cores"}
+                                </button>
+
+                                {isAdvancedPaletteOpen ? (
+                                    <div className="palette_grid">
+                                        <label className="editor_field">
+                                            <span>Background</span>
+                                            <div className="palette_input_row">
+                                                <input
+                                                    className="palette_swatch"
+                                                    type="color"
+                                                    value={activePalette.bg}
+                                                    onChange={(event) => handlePaletteChange("bg", event.target.value)}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={activePalette.bg}
+                                                    onChange={(event) => handlePaletteChange("bg", event.target.value)}
+                                                />
+                                            </div>
+                                        </label>
+
+                                        <label className="editor_field">
+                                            <span>Text</span>
+                                            <div className="palette_input_row">
+                                                <input
+                                                    className="palette_swatch"
+                                                    type="color"
+                                                    value={activePalette.text}
+                                                    onChange={(event) => handlePaletteChange("text", event.target.value)}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={activePalette.text}
+                                                    onChange={(event) => handlePaletteChange("text", event.target.value)}
+                                                />
+                                            </div>
+                                        </label>
+
+                                        <label className="editor_field">
+                                            <span>Muted</span>
+                                            <div className="palette_input_row">
+                                                <input
+                                                    className="palette_swatch"
+                                                    type="color"
+                                                    value={activePalette.muted}
+                                                    onChange={(event) => handlePaletteChange("muted", event.target.value)}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={activePalette.muted}
+                                                    onChange={(event) => handlePaletteChange("muted", event.target.value)}
+                                                />
+                                            </div>
+                                        </label>
+
+                                        <label className="editor_field">
+                                            <span>Accent</span>
+                                            <div className="palette_input_row">
+                                                <input
+                                                    className="palette_swatch"
+                                                    type="color"
+                                                    value={activePalette.accent}
+                                                    onChange={(event) => handlePaletteChange("accent", event.target.value)}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={activePalette.accent}
+                                                    onChange={(event) => handlePaletteChange("accent", event.target.value)}
+                                                />
+                                            </div>
+                                        </label>
+
+                                        <label className="editor_field">
+                                            <span>Accent 2</span>
+                                            <div className="palette_input_row">
+                                                <input
+                                                    className="palette_swatch"
+                                                    type="color"
+                                                    value={activePalette.accent2}
+                                                    onChange={(event) => handlePaletteChange("accent2", event.target.value)}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={activePalette.accent2}
+                                                    onChange={(event) => handlePaletteChange("accent2", event.target.value)}
+                                                />
+                                            </div>
+                                        </label>
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="elements_list">
-                        {(activeSlide?.elements ?? []).slice(0, 10).map((element, index) => (
+                        {activeInspectorElements.slice(0, 10).map((element, index) => (
                             <button
                                 className={`element_row ${selectedElementId === element.id ? "active" : ""}`}
                                 key={element.id}
-                                onClick={() => setSelectedElementId(element.id)}
+                                onClick={() => {
+                                    setSelectedElementId(element.id);
+                                    setLiveElementPosition(null);
+                                }}
                                 type="button"
                             >
                                 <span>{index + 1}</span>
-                                <span>{element.type}</span>
+                                <span className="element_row_label">{getInspectorElementPreview(element, activeSlide)}</span>
                             </button>
                         ))}
-                        {(activeSlide?.elements?.length ?? 0) > 10 && (
-                            <div className="elements_more">+ {activeSlide.elements.length - 10} elementos</div>
+                        {activeInspectorElements.length > 10 && (
+                            <div className="elements_more">+ {activeInspectorElements.length - 10} elementos</div>
                         )}
                     </div>
                 </aside>
             </div>
+            <input
+                ref={imagePickerRef}
+                type="file"
+                accept="image/*"
+                className="hidden_file_input"
+                onChange={handleImageFileChange}
+            />
         </div>
     );
 }
 
 function projectDocToCarousel(data: any): Carousel {
+    // Fonte de verdade do editor: payload final de render persistido no backend.
+    if (data?.renderCarousel?.meta && Array.isArray(data?.renderCarousel?.slides)) {
+        const fromRender = data.renderCarousel as Carousel;
+        logCarouselSignature("renderCarousel", fromRender);
+        return fromRender;
+    }
+
+    // Compat legado: slides persistidos direto no projeto.
     if (Array.isArray(data?.slides) && data.slides.length > 0) {
-        return {
+        const fromSlides = {
             meta: data.meta,
             slides: data.slides,
         } as Carousel;
+        logCarouselSignature("slides", fromSlides);
+        return fromSlides;
     }
 
+    // Fallback para docs legados que só tinham ai.normalized.
     if (data?.ai?.normalized?.meta && data?.ai?.normalized?.slides) {
-        return data.ai.normalized as Carousel;
+        const fromNormalized = data.ai.normalized as Carousel;
+        logCarouselSignature("ai.normalized", fromNormalized);
+        return fromNormalized;
     }
 
     if (data?.ai?.raw?.meta && data?.ai?.raw?.slides) {
-        return data.ai.raw as Carousel;
+        const fromRaw = data.ai.raw as Carousel;
+        logCarouselSignature("ai.raw", fromRaw);
+        return fromRaw;
     }
 
-    return {
+    const fallback = {
         meta: data?.meta ?? {},
         slides: data?.slides ?? [],
     } as Carousel;
+    logCarouselSignature("fallback", fallback);
+    return fallback;
 }
 
 function firestoreSlidesToEditorSlides(rawSlides: any[]): EditorSlide[] {
@@ -604,4 +1154,474 @@ function firestoreSlidesToEditorSlides(rawSlides: any[]): EditorSlide[] {
             })
             .filter((el): el is EditorElement => el !== null),
     }));
+}
+
+function logCarouselSignature(source: string, carousel: Carousel) {
+    if (!import.meta.env.DEV) {
+        return;
+    }
+
+    const firstSlide = carousel?.slides?.[0] as any;
+    const elements = Array.isArray(firstSlide?.elements)
+        ? firstSlide.elements
+        : [
+            ...(Array.isArray(firstSlide?.layers?.background) ? firstSlide.layers.background : []),
+            ...(Array.isArray(firstSlide?.layers?.atmosphere) ? firstSlide.layers.atmosphere : []),
+            ...(Array.isArray(firstSlide?.layers?.content) ? firstSlide.layers.content : []),
+            ...(Array.isArray(firstSlide?.layers?.ui) ? firstSlide.layers.ui : []),
+        ];
+
+    const sample = elements.slice(0, 12).map((el: any) => ({
+        id: el?.id,
+        type: el?.type,
+        name: el?.name,
+    }));
+
+    console.info("[EditPage] carousel source", {
+        source,
+        style: carousel?.meta?.style ?? null,
+        slideCount: carousel?.slides?.length ?? 0,
+        firstSlideSample: sample,
+    });
+}
+
+function getInspectorElements(carousel: Carousel | null, slideIndex: number): InspectorElementEntry[] {
+    const slide = carousel?.slides?.[slideIndex] as any;
+    if (!slide) {
+        return [];
+    }
+
+    if (slide?.layers) {
+        return [
+            ...mapInspectorLayer(slide.layers.background, "background"),
+            ...mapInspectorLayer(slide.layers.atmosphere, "atmosphere"),
+            ...mapInspectorLayer(slide.layers.content, "content"),
+            ...mapInspectorLayer(slide.layers.ui, "ui"),
+        ].filter((element) => isEditableElementType(element.type));
+    }
+
+    if (Array.isArray(slide?.elements)) {
+        return mapInspectorLayer(slide.elements, "flat").filter((element) => isEditableElementType(element.type));
+    }
+
+    if (Array.isArray(slide?.canvas?.elements)) {
+        return mapInspectorLayer(slide.canvas.elements, "flat").filter((element) => isEditableElementType(element.type));
+    }
+
+    return [];
+}
+
+function mapInspectorLayer(
+    elements: any[] | undefined,
+    layer: InspectorElementEntry["layer"]
+): InspectorElementEntry[] {
+    if (!Array.isArray(elements)) {
+        return [];
+    }
+
+    return elements
+        .filter((element) => element?.id && element?.type)
+        .map((element) => ({
+            id: String(element.id),
+            type: String(element.type),
+            name: typeof element.name === "string" ? element.name : undefined,
+            layer,
+        }));
+}
+
+
+function updateCarouselElement(
+    carousel: Carousel | null,
+    slideId: string,
+    elementId: string,
+    patch: Partial<EditorElement>
+): Carousel | null {
+    if (!carousel) {
+        return carousel;
+    }
+
+    return {
+        ...carousel,
+        slides: carousel.slides.map((slide: any) => {
+            if (slide?.id !== slideId) {
+                return slide;
+            }
+
+            if (slide?.layers) {
+                return {
+                    ...slide,
+                    layers: {
+                        background: updateElementList(slide.layers.background, elementId, patch),
+                        atmosphere: updateElementList(slide.layers.atmosphere, elementId, patch),
+                        content: updateElementList(slide.layers.content, elementId, patch),
+                        ui: updateElementList(slide.layers.ui, elementId, patch),
+                    },
+                };
+            }
+
+            if (Array.isArray(slide?.elements)) {
+                return {
+                    ...slide,
+                    elements: updateElementList(slide.elements, elementId, patch),
+                };
+            }
+
+            return slide;
+        }),
+    };
+}
+
+function updateElementList(elements: any[] | undefined, elementId: string, patch: Partial<EditorElement>) {
+    if (!Array.isArray(elements)) {
+        return elements;
+    }
+
+    return elements.map((element) => {
+        if (element?.id !== elementId) {
+            return element;
+        }
+
+        const next = { ...element };
+        if (patch.x !== undefined) next.x = patch.x;
+        if (patch.y !== undefined) next.y = patch.y;
+        if (patch.src !== undefined) {
+            next.src = patch.src;
+            next.url = patch.src;
+        }
+        if (patch.status !== undefined) next.status = patch.status;
+        if (patch.content !== undefined && element.type === "text") {
+            next.text = patch.content;
+            next.content = patch.content;
+        }
+        return next;
+    });
+}
+
+function isEditableElementType(type: string): type is EditableElementType {
+    return type === "text" || type === "image";
+}
+
+function humanizeElementType(type: string, name?: string) {
+    if (type === "text") return "Texto";
+    if (type === "image") return "Imagem";
+    if (type === "profileCard") return "Card de perfil";
+    if (type === "background") return "Fundo";
+    if (type === "gradientRect") return "Gradiente";
+    if (type === "glow") return "Brilho";
+    if (type === "path") return "Forma";
+    if (type === "shape" && name === "arrows") return "Setas";
+    if (type === "shape") return "Forma";
+    return type;
+}
+
+function computeResponsiveZoom(container: HTMLElement) {
+    const widthRatio = Math.max(0.1, (container.clientWidth - STAGE_PADDING) / DOC_W);
+    const heightRatio = Math.max(0.1, (container.clientHeight - STAGE_PADDING) / DOC_H);
+    const fitted = Math.min(widthRatio, heightRatio);
+    return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(fitted.toFixed(2))));
+}
+
+function getInspectorElementPreview(element: InspectorElementEntry, slide?: EditorSlide) {
+    const fullElement = slide?.elements.find((item) => item.id === element.id);
+    if (fullElement?.type === "text") {
+        return String(fullElement.content ?? "").trim() || "Texto vazio";
+    }
+
+    return humanizeElementType(element.type, element.name);
+}
+
+function getResolvedPalette(palette?: Carousel["meta"]["palette"]): EditorPalette {
+    return {
+        bg: String(palette?.bg ?? "#ffffff"),
+        text: String(palette?.text ?? "#111111"),
+        muted: String(palette?.muted ?? "#777777"),
+        accent: String(palette?.accent ?? "#2563eb"),
+        accent2: String(palette?.accent2 ?? "#a855f7"),
+    };
+}
+
+function palettesEqual(left: EditorPalette, right: EditorPalette) {
+    return left.bg.toLowerCase() === right.bg.toLowerCase()
+        && left.text.toLowerCase() === right.text.toLowerCase()
+        && left.muted.toLowerCase() === right.muted.toLowerCase()
+        && left.accent.toLowerCase() === right.accent.toLowerCase()
+        && left.accent2.toLowerCase() === right.accent2.toLowerCase();
+}
+
+function renderPaletteSwatches(palette: EditorPalette) {
+    return [
+        palette.bg,
+        palette.text,
+        palette.muted,
+        palette.accent,
+        palette.accent2,
+    ].map((color, index) => (
+        <span
+            key={`${color}-${index}`}
+            className="palette_preset_swatch"
+            style={{ background: color }}
+        />
+    ));
+}
+
+function recolorCarouselPalette(
+    carousel: Carousel,
+    previousPalette: EditorPalette,
+    nextPalette: EditorPalette
+): Carousel {
+    return {
+        ...carousel,
+        meta: {
+            ...carousel.meta,
+            palette: nextPalette,
+        },
+        slides: carousel.slides.map((slide: any) => {
+            if (slide?.layers) {
+                return {
+                    ...slide,
+                    layers: {
+                        background: recolorElementList(slide.layers.background, previousPalette, nextPalette),
+                        atmosphere: recolorElementList(slide.layers.atmosphere, previousPalette, nextPalette),
+                        content: recolorElementList(slide.layers.content, previousPalette, nextPalette),
+                        ui: recolorElementList(slide.layers.ui, previousPalette, nextPalette),
+                    },
+                };
+            }
+
+            if (Array.isArray(slide?.elements)) {
+                return {
+                    ...slide,
+                    elements: recolorElementList(slide.elements, previousPalette, nextPalette),
+                };
+            }
+
+            return slide;
+        }),
+    };
+}
+
+function recolorElementList(
+    elements: any[] | undefined,
+    previousPalette: EditorPalette,
+    nextPalette: EditorPalette
+) {
+    if (!Array.isArray(elements)) {
+        return elements;
+    }
+
+    return elements.map((element) => recolorPaletteValue(element, previousPalette, nextPalette));
+}
+
+function recolorPaletteValue(value: unknown, previousPalette: EditorPalette, nextPalette: EditorPalette): unknown {
+    if (Array.isArray(value)) {
+        return value.map((item) => recolorPaletteValue(item, previousPalette, nextPalette));
+    }
+
+    if (!value || typeof value !== "object") {
+        return value;
+    }
+
+    const entries = Object.entries(value as Record<string, unknown>);
+    const nextEntries = entries.map(([key, entryValue]) => {
+        if (key === "prompt" && typeof entryValue === "string") {
+            return [key, replacePaletteMentionsInPrompt(entryValue, previousPalette, nextPalette)];
+        }
+
+        if (key === "stops" && Array.isArray(entryValue)) {
+            return [key, recolorGradientStops(entryValue, previousPalette, nextPalette)];
+        }
+
+        if (isPaletteColorProperty(key) && typeof entryValue === "string") {
+            return [key, replacePaletteColor(entryValue, previousPalette, nextPalette)];
+        }
+
+        if (entryValue && typeof entryValue === "object") {
+            return [key, recolorPaletteValue(entryValue, previousPalette, nextPalette)];
+        }
+
+        return [key, entryValue];
+    });
+
+    return Object.fromEntries(nextEntries);
+}
+
+function recolorGradientStops(
+    stops: Array<number | string> | Array<[number, string]>,
+    previousPalette: EditorPalette,
+    nextPalette: EditorPalette
+) {
+    if (stops.every((stop) => Array.isArray(stop))) {
+        return (stops as Array<[number, string]>).map(([offset, color]) => [
+            offset,
+            replacePaletteColor(color, previousPalette, nextPalette),
+        ]);
+    }
+
+    return (stops as Array<number | string>).map((stop) => (
+        typeof stop === "string"
+            ? replacePaletteColor(stop, previousPalette, nextPalette)
+            : stop
+    ));
+}
+
+function isPaletteColorProperty(key: string) {
+    return key === "fill"
+        || key === "stroke"
+        || key === "color"
+        || key === "shadowColor"
+        || key === "accent"
+        || key === "text";
+}
+
+function replacePaletteMentionsInPrompt(
+    prompt: string,
+    previousPalette: EditorPalette,
+    nextPalette: EditorPalette
+) {
+    let nextPrompt = prompt;
+
+    for (const paletteKey of Object.keys(previousPalette) as PaletteKey[]) {
+        const previousColor = previousPalette[paletteKey];
+        const nextColor = nextPalette[paletteKey];
+        if (!previousColor || !nextColor || previousColor === nextColor) {
+            continue;
+        }
+
+        nextPrompt = nextPrompt.replaceAll(previousColor, nextColor);
+        nextPrompt = nextPrompt.replaceAll(previousColor.toLowerCase(), nextColor.toLowerCase());
+        nextPrompt = nextPrompt.replaceAll(previousColor.toUpperCase(), nextColor.toUpperCase());
+    }
+
+    return nextPrompt;
+}
+
+function replacePaletteColor(
+    input: string,
+    previousPalette: EditorPalette,
+    nextPalette: EditorPalette
+) {
+    const inputColor = parseColorToken(input);
+    if (!inputColor) {
+        return input;
+    }
+
+    for (const paletteKey of Object.keys(previousPalette) as PaletteKey[]) {
+        const previousColor = parseColorToken(previousPalette[paletteKey]);
+        if (!previousColor) {
+            continue;
+        }
+
+        if (!sameRgb(inputColor, previousColor)) {
+            continue;
+        }
+
+        const nextColor = nextPalette[paletteKey];
+        if (inputColor.alpha !== null && inputColor.alpha < 1) {
+            return withPreservedAlpha(nextColor, inputColor.alpha);
+        }
+
+        return nextColor;
+    }
+
+    return input;
+}
+
+function parseColorToken(value: string) {
+    const input = value.trim();
+    const shortHex = input.match(/^#([0-9a-f]{3})$/i);
+    if (shortHex) {
+        const [r, g, b] = shortHex[1].split("").map((part) => Number.parseInt(part + part, 16));
+        return { r, g, b, alpha: null as number | null };
+    }
+
+    const hex = input.match(/^#([0-9a-f]{6})$/i);
+    if (hex) {
+        const h = hex[1];
+        return {
+            r: Number.parseInt(h.slice(0, 2), 16),
+            g: Number.parseInt(h.slice(2, 4), 16),
+            b: Number.parseInt(h.slice(4, 6), 16),
+            alpha: null as number | null,
+        };
+    }
+
+    const rgb = input.match(/^rgba?\(([^)]+)\)$/i);
+    if (!rgb) {
+        return null;
+    }
+
+    const parts = rgb[1].split(",").map((part) => Number.parseFloat(part.trim()));
+    if (parts.length < 3 || parts.some((part) => Number.isNaN(part))) {
+        return null;
+    }
+
+    return {
+        r: clampColorChannel(parts[0]),
+        g: clampColorChannel(parts[1]),
+        b: clampColorChannel(parts[2]),
+        alpha: parts.length >= 4 && Number.isFinite(parts[3]) ? clampAlpha(parts[3]) : null,
+    };
+}
+
+function sameRgb(
+    left: { r: number; g: number; b: number },
+    right: { r: number; g: number; b: number }
+) {
+    return left.r === right.r && left.g === right.g && left.b === right.b;
+}
+
+function withPreservedAlpha(color: string, alpha: number) {
+    const parsed = parseColorToken(color);
+    if (!parsed) {
+        return color;
+    }
+
+    return `rgba(${parsed.r},${parsed.g},${parsed.b},${trimAlpha(alpha)})`;
+}
+
+function clampColorChannel(value: number) {
+    return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function clampAlpha(value: number) {
+    return Math.max(0, Math.min(1, value));
+}
+
+function trimAlpha(value: number) {
+    return Number(value.toFixed(3)).toString();
+}
+
+function getFileExtension(file: File) {
+    const byMime = file.type.split("/")[1]?.trim().toLowerCase();
+    if (byMime) {
+        if (byMime === "jpeg") return "jpg";
+        if (byMime === "svg+xml") return "svg";
+        return byMime;
+    }
+
+    const rawName = file.name.split(".").pop()?.trim().toLowerCase();
+    if (rawName) {
+        return rawName;
+    }
+
+    return "png";
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = fileName;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+function slugifyFileName(value: string) {
+    return value
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
 }

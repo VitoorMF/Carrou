@@ -2,21 +2,37 @@ import {
     DOC_H,
     DOC_W,
     TemplateBuildParams,
-    textOn,
     truncateText,
     withAlpha,
     type CarouselElement,
 } from "../shared";
 
+function buildEditorialPrompt(heading: string) {
+    return [
+        `realistic editorial photography about ${heading || "design communication"}`,
+        "neutral warm tones",
+        "fashion/art direction",
+        "cinematic natural light",
+        "high-end instagram visual",
+        "vertical composition 4:5",
+        "space for text overlay",
+        "no text overlay in image",
+    ].join(", ");
+}
+
 export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): CarouselElement[] {
-    const { slideIndex, role, copy, palette } = params;
+    const { slideIndex, role, copy } = params;
+    const imageLayout = slideIndex % 2 === 0;
 
-    const bg = slideIndex % 2 === 0 ? "#FFFFFF" : "#F6F8FF";
-    const textColor = textOn(bg);
-    const accent = palette.accent;
-
-    const heading = truncateText(copy.heading || "Post Direto ao Ponto", 78);
-    const support = truncateText(copy.support || "Microblog com leitura rápida e foco total em clareza.", 190);
+    const warmDark = "#6B5548";
+    const warmMid = "#A8896B";
+    const warmLight = "#EEEAE5";
+    const heading = truncateText(copy.heading || "Você pensa no que vai dizer", imageLayout ? 74 : 80);
+    const support = truncateText(
+        copy.support || "Design não é só estética. É sobre comunicar com clareza, intenção e consistência visual.",
+        imageLayout ? 170 : 220
+    );
+    const signature = "MARIANA REIS  |  DESIGNER  •  DESIGN COM PROPÓSITO";
 
     const elements: CarouselElement[] = [
         {
@@ -26,147 +42,180 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
             y: 0,
             width: DOC_W,
             height: DOC_H,
-            fill: bg,
+            fill: imageLayout ? "#111111" : role === "cta" ? "#9A7C60" : warmDark,
             opacity: 1,
-        } as CarouselElement,
-        {
-            id: `accent_tag_${slideIndex}`,
-            type: "path",
-            x: 72,
-            y: 72,
-            data: "M0,0 L250,0 L250,46 L0,46 Z",
-            fill: accent,
-            opacity: 1,
-        } as CarouselElement,
-        {
-            id: `accent_tag_text_${slideIndex}`,
-            type: "text",
-            x: 72,
-            y: 85,
-            text: role === "hook" ? "LEIA ISSO" : role === "cta" ? "CALL TO ACTION" : `SLIDE ${slideIndex + 1}`,
-            fill: textOn(accent),
-            fontSize: 16,
-            fontFamily: "Sora",
-            fontStyle: "bold",
-            width: 250,
-            align: "center",
-            lineHeight: 1.2,
-            letterSpacing: 1.4,
-            opacity: 1,
-        } as CarouselElement,
-        {
-            id: `heading_${slideIndex}`,
-            type: "text",
-            x: 72,
-            y: 170,
-            text: heading,
-            fill: textColor,
-            fontSize: heading.length > 34 ? 56 : 66,
-            fontFamily: "Sora",
-            fontStyle: "bold",
-            width: 920,
-            align: "left",
-            lineHeight: 1.02,
-            letterSpacing: -1,
-            opacity: 1,
-        } as CarouselElement,
-        {
-            id: `support_card_${slideIndex}`,
-            type: "glassCard",
-            x: 72,
-            y: 430,
-            width: 936,
-            height: 220,
-            radius: 26,
-            fill: withAlpha(textColor, 0.06),
-            stroke: withAlpha(textColor, 0.15),
-            strokeWidth: 1.5,
-            opacity: 1,
-        } as CarouselElement,
-        {
-            id: `support_${slideIndex}`,
-            type: "text",
-            x: 108,
-            y: 476,
-            text: support,
-            fill: withAlpha(textColor, 0.82),
-            fontSize: 31,
-            fontFamily: "Manrope",
-            fontStyle: "normal",
-            width: 860,
-            align: "left",
-            lineHeight: 1.34,
-            letterSpacing: 0,
-            opacity: 1,
-        } as CarouselElement,
+        },
     ];
 
-    copy.extras.slice(0, 3).forEach((extra, index) => {
+    if (imageLayout) {
+        elements.push(
+            {
+                id: `hero_${slideIndex}`,
+                type: "image",
+                x: 0,
+                y: 0,
+                width: DOC_W,
+                height: DOC_H,
+                prompt: buildEditorialPrompt(copy.heading),
+                fit: "cover",
+                opacity: 1,
+            },
+            {
+                id: `overlay_${slideIndex}`,
+                type: "gradientRect",
+                x: 0,
+                y: 0,
+                width: DOC_W,
+                height: DOC_H,
+                kind: "linear",
+                start: { x: 0, y: 0 },
+                end: { x: 0, y: DOC_H },
+                stops: [0, "rgba(0,0,0,0.15)", 0.45, "rgba(0,0,0,0.42)", 1, "rgba(0,0,0,0.7)"],
+                opacity: 1,
+            },
+            {
+                id: `heading_${slideIndex}`,
+                type: "text",
+                x: 84,
+                y: role === "hook" ? 770 : 630,
+                text: heading,
+                fill: "#F5F1EC",
+                fontSize: role === "hook" ? 52 : 48,
+                fontFamily: "Montserrat",
+                fontStyle: "normal",
+                width: 660,
+                align: "left",
+                lineHeight: 1.05,
+                letterSpacing: -0.4,
+                opacity: 1,
+            },
+            {
+                id: `support_${slideIndex}`,
+                type: "text",
+                x: 84,
+                y: role === "hook" ? 1010 : 860,
+                text: support,
+                fill: withAlpha("#FFFFFF", 0.9),
+                fontSize: 29,
+                fontFamily: "Manrope",
+                fontStyle: "normal",
+                width: 600,
+                align: "left",
+                lineHeight: 1.24,
+                letterSpacing: 0,
+                opacity: 1,
+            }
+        );
+    } else {
+        elements.push(
+            {
+                id: `heading_${slideIndex}`,
+                type: "text",
+                x: 250,
+                y: role === "cta" ? 300 : 340,
+                text: heading,
+                fill: role === "cta" ? "#F3ECE6" : "#F1E8DE",
+                fontSize: role === "cta" ? 64 : 60,
+                fontFamily: "Montserrat",
+                fontStyle: "normal",
+                width: 600,
+                align: "left",
+                lineHeight: 1.08,
+                letterSpacing: -0.3,
+                opacity: 1,
+            },
+            {
+                id: `support_${slideIndex}`,
+                type: "text",
+                x: 270,
+                y: role === "cta" ? 700 : 760,
+                text: support,
+                fill: withAlpha("#F4ECE4", 0.86),
+                fontSize: 30,
+                fontFamily: "Manrope",
+                fontStyle: "normal",
+                width: 540,
+                align: "left",
+                lineHeight: 1.32,
+                letterSpacing: 0,
+                opacity: 1,
+            }
+        );
+    }
+
+    copy.extras.slice(0, imageLayout ? 2 : 4).forEach((extra, index) => {
         elements.push({
             id: `extra_${slideIndex}_${index}`,
             type: "text",
-            x: 92,
-            y: 720 + index * 62,
-            text: `✓ ${truncateText(extra, 84)}`,
-            fill: withAlpha(textColor, 0.76),
-            fontSize: 26,
+            x: imageLayout ? 84 : 270,
+            y: imageLayout ? 1120 + index * 46 : 960 + index * 50,
+            text: imageLayout
+                ? truncateText(extra, 62)
+                : `✓ ${truncateText(extra, 52)}`,
+            fill: imageLayout ? withAlpha("#FFFFFF", 0.84) : withAlpha("#F5ECE2", 0.92),
+            fontSize: imageLayout ? 24 : 26,
             fontFamily: "Manrope",
             fontStyle: "normal",
-            width: 860,
+            width: imageLayout ? 620 : 520,
             align: "left",
-            lineHeight: 1.2,
+            lineHeight: 1.18,
             letterSpacing: 0,
             opacity: 1,
-        } as CarouselElement);
+        });
     });
 
-    if (role !== "cta") {
-        elements.push({
-            id: `footer_${slideIndex}`,
+    elements.push(
+        {
+            id: `signature_${slideIndex}`,
             type: "text",
-            x: 72,
-            y: 1220,
-            text: role === "hook" ? "Deslize para os próximos" : "Continue →",
-            fill: withAlpha(textColor, 0.54),
-            fontSize: 18,
+            x: 84,
+            y: 1288,
+            text: signature,
+            fill: imageLayout ? withAlpha("#FFFFFF", 0.6) : withAlpha(warmLight, 0.72),
+            fontSize: 11,
+            fontFamily: "Sora",
+            fontStyle: "normal",
+            width: 920,
+            align: "left",
+            lineHeight: 1,
+            letterSpacing: 2.2,
+            opacity: 1,
+        },
+        {
+            id: `mode_tag_${slideIndex}`,
+            type: "text",
+            x: 84,
+            y: 78,
+            text: role === "hook" ? "ABERTURA" : role === "cta" ? "VIRADA" : `PONTO ${slideIndex}`,
+            fill: imageLayout ? withAlpha("#F6EFE8", 0.86) : withAlpha(warmLight, 0.72),
+            fontSize: 15,
             fontFamily: "Sora",
             fontStyle: "bold",
-            width: 500,
+            width: 260,
             align: "left",
-            lineHeight: 1.1,
-            letterSpacing: 1.5,
+            lineHeight: 1,
+            letterSpacing: 1.4,
             opacity: 1,
-        } as CarouselElement);
-    }
+        }
+    );
 
-    if (role === "cta") {
-        elements.push(
-            {
-                id: `cta_block_${slideIndex}`,
-                type: "path",
-                x: 72,
-                y: 1120,
-                data: "M0,0 L600,0 L600,92 L0,92 Z",
-                fill: accent,
-                opacity: 1,
-            } as CarouselElement,
-            {
-                id: `cta_text_${slideIndex}`,
-                type: "text",
-                x: 72,
-                y: 1148,
-                text: "SALVA AGORA E ME SEGUE PRA MAIS",
-                fill: textOn(accent),
-                fontSize: 24,
-                fontFamily: "Sora",
-                fontStyle: "bold",
-                width: 600,
-                align: "center",
-                lineHeight: 1.2,
-                letterSpacing: 1.3,
-                opacity: 1,
-            } as CarouselElement
-        );
+    if (!imageLayout) {
+        elements.push({
+            id: `accent_line_${slideIndex}`,
+            type: "text",
+            x: 250,
+            y: role === "cta" ? 268 : 308,
+            text: "DESIGN",
+            fill: warmMid,
+            fontSize: 22,
+            fontFamily: "Montserrat",
+            fontStyle: "bold",
+            width: 180,
+            align: "left",
+            lineHeight: 1,
+            letterSpacing: 0.6,
+            opacity: 1,
+        });
     }
 
     return elements.slice(0, 20);

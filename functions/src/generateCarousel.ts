@@ -10,6 +10,7 @@ import cors from "cors";
 import { generateCarouselJson } from "./ai/generator";
 import { normalizeCarousel } from "./ai/normalize";
 import { findTemplateById, inferTemplateFromPrompt } from "./ai/templateCatalog";
+import { buildLayeredTemplateCarousel, type TemplateDraft } from "../../shared/templateEngine";
 
 const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 const corsHandler = cors({ origin: true });
@@ -59,75 +60,23 @@ type GenerateCarouselPayload = {
     theme?: string;
 };
 
-type AnyEl = {
-    id: string;
-    type: string;
-    [key: string]: any;
-};
-
-type FlatSlide = {
-    id: string;
-    elements?: AnyEl[];
-};
-
-type LayeredSlide = {
-    id: string;
-    layers: {
-        background: AnyEl[];
-        atmosphere: AnyEl[];
-        content: AnyEl[];
-        ui: AnyEl[];
-    };
-};
-
-function toLayeredSlide(slide: FlatSlide): LayeredSlide {
-    const background: AnyEl[] = [];
-    const atmosphere: AnyEl[] = [];
-    const content: AnyEl[] = [];
-    const ui: AnyEl[] = [];
-
-    for (const el of slide.elements ?? []) {
-        if (el.type === "background") {
-            background.push(el);
-            continue;
-        }
-
-        if (
-            el.type === "backgroundImage"
-            || el.type === "noise"
-            || el.type === "gradientRect"
-            || el.type === "glow"
-        ) {
-            atmosphere.push(el);
-            continue;
-        }
-
-        if (el.type === "glassCard") {
-            content.push(el);
-            continue;
-        }
-
-        if (el.type === "image") {
-            content.push(el);
-            continue;
-        }
-
-        if (el.type === "text" || el.type === "path") {
-            content.push(el);
-            continue;
-        }
-
-        content.push(el);
-    }
-
+function toTemplateDraft(contentCarousel: any): TemplateDraft {
     return {
-        id: slide.id,
-        layers: {
-            background,
-            atmosphere,
-            content,
-            ui,
+        meta: {
+            title: contentCarousel?.meta?.title,
+            objective: contentCarousel?.meta?.objective,
         },
+        slides: Array.isArray(contentCarousel?.slides)
+            ? contentCarousel.slides.map((slide: any) => ({
+                id: slide?.id,
+                role: slide?.role,
+                headline: slide?.headline,
+                body: slide?.body,
+                bullets: slide?.bullets,
+                imagePrompt: slide?.imagePrompt,
+                notes: slide?.notes,
+            }))
+            : [],
     };
 }
 
@@ -228,18 +177,19 @@ export const generateCarousel = onRequest(
                     templateId: selectedTemplate.id,
                 });
 
-                const editorCarousel = {
-                    ...normalizedCarousel,
-                    slides: normalizedCarousel.slides.map(toLayeredSlide),
-                };
+                const renderCarousel = buildLayeredTemplateCarousel(
+                    selectedTemplate.id,
+                    toTemplateDraft(contentCarousel)
+                );
 
                 const safeNormalizedCarousel = stripUndefinedDeep(normalizedCarousel);
-                const safeEditorSlides = stripUndefinedDeep(editorCarousel.slides);
-                const safeMeta = stripUndefinedDeep(editorCarousel.meta);
+                const safeRenderCarousel = stripUndefinedDeep(renderCarousel);
+                const safeEditorSlides = stripUndefinedDeep(renderCarousel.slides);
+                const safeMeta = stripUndefinedDeep(renderCarousel.meta);
 
                 logger.info("normalize concluído", {
-                    slideCount: editorCarousel.slides.length,
-                    title: editorCarousel.meta?.title ?? null,
+                    slideCount: renderCarousel.slides.length,
+                    title: renderCarousel.meta?.title ?? null,
                     selectedTemplateId: normalizedCarousel.selectedTemplateId,
                 });
 
@@ -250,7 +200,7 @@ export const generateCarousel = onRequest(
                     status: "ready",
                     meta: safeMeta,
                     ai: {
-                        generator: "generateCarousel:simple-v2",
+                        generator: "generateCarousel:simple-v3",
                         prompt,
                         templateId: normalizedCarousel.selectedTemplateId,
                         theme: theme ?? null,
@@ -258,6 +208,8 @@ export const generateCarousel = onRequest(
                         raw: stripUndefinedDeep(contentCarousel),
                         normalized: safeNormalizedCarousel,
                     },
+                    renderCarousel: safeRenderCarousel,
+                    // Compat legado: mantido para rotas/funções antigas.
                     slides: safeEditorSlides,
                     createdAt: FieldValue.serverTimestamp(),
                     updatedAt: FieldValue.serverTimestamp(),

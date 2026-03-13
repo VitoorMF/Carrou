@@ -34,3 +34,24 @@ export type TemplateBuildParams = {
     copy: SlideCopy;
     palette: ResolvedPalette;
 };
+
+export type TemplateDraftSlide = {
+    id?: string;
+    role?: "cover" | "content" | "cta";
+    headline?: string;
+    body?: string;
+    bullets?: string[];
+    imagePrompt?: string;
+    notes?: string;
+};
+
+export type TemplateDraftMeta = {
+    title?: string;
+    objective?: string;
+    theme?: string;
+};
+
+export type TemplateDraft = {
+    meta: TemplateDraftMeta;
+    slides: TemplateDraftSlide[];
+};

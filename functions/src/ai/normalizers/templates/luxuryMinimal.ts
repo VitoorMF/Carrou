@@ -28,7 +28,17 @@ export function buildLuxuryMinimalTemplate(params: TemplateBuildParams): Carouse
             height: DOC_H,
             fill: bg,
             opacity: 1,
-        } as CarouselElement,
+        },
+        {
+            id: `glow_${slideIndex}`,
+            type: "glow",
+            x: 220,
+            y: 220,
+            r: 260,
+            color: accent,
+            blur: 120,
+            opacity: 0.2,
+        },
         {
             id: `line_${slideIndex}`,
             type: "path",
@@ -37,7 +47,7 @@ export function buildLuxuryMinimalTemplate(params: TemplateBuildParams): Carouse
             data: "M0,0 L936,0 L936,2 L0,2 Z",
             fill: withAlpha(textColor, 0.22),
             opacity: 1,
-        } as CarouselElement,
+        },
         {
             id: `kicker_${slideIndex}`,
             type: "text",
@@ -53,7 +63,7 @@ export function buildLuxuryMinimalTemplate(params: TemplateBuildParams): Carouse
             lineHeight: 1,
             letterSpacing: 2.6,
             opacity: 1,
-        } as CarouselElement,
+        },
         {
             id: `heading_${slideIndex}`,
             type: "text",
@@ -69,7 +79,7 @@ export function buildLuxuryMinimalTemplate(params: TemplateBuildParams): Carouse
             lineHeight: 1.08,
             letterSpacing: -0.4,
             opacity: 1,
-        } as CarouselElement,
+        },
         {
             id: `support_${slideIndex}`,
             type: "text",
@@ -85,7 +95,7 @@ export function buildLuxuryMinimalTemplate(params: TemplateBuildParams): Carouse
             lineHeight: 1.42,
             letterSpacing: 0,
             opacity: 1,
-        } as CarouselElement,
+        },
     ];
 
     if (role !== "cta") {
@@ -101,7 +111,7 @@ export function buildLuxuryMinimalTemplate(params: TemplateBuildParams): Carouse
                 fit: "cover",
                 opacity: 1,
                 radius: 14,
-            } as CarouselElement,
+            },
             {
                 id: `hero_border_${slideIndex}`,
                 type: "glassCard",
@@ -114,7 +124,7 @@ export function buildLuxuryMinimalTemplate(params: TemplateBuildParams): Carouse
                 stroke: withAlpha(accent, 0.45),
                 strokeWidth: 1.5,
                 opacity: 1,
-            } as CarouselElement
+            }
         );
     }
 
@@ -134,7 +144,7 @@ export function buildLuxuryMinimalTemplate(params: TemplateBuildParams): Carouse
             lineHeight: 1.3,
             letterSpacing: 0,
             opacity: 1,
-        } as CarouselElement);
+        });
     });
 
     if (role === "cta") {
@@ -147,7 +157,7 @@ export function buildLuxuryMinimalTemplate(params: TemplateBuildParams): Carouse
                 data: "M0,0 L420,0 L420,3 L0,3 Z",
                 fill: accent,
                 opacity: 1,
-            } as CarouselElement,
+            },
             {
                 id: `cta_text_${slideIndex}`,
                 type: "text",
@@ -163,7 +173,7 @@ export function buildLuxuryMinimalTemplate(params: TemplateBuildParams): Carouse
                 lineHeight: 1.2,
                 letterSpacing: 1.2,
                 opacity: 1,
-            } as CarouselElement
+            }
         );
     }
 

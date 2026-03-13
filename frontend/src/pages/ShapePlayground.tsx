@@ -3,12 +3,7 @@ import { Canvas } from "../editor/canvas/Canvas";
 import type { Carousel as CanvasCarousel } from "../editor/canvas/types";
 import type { Carousel as LayoutCarousel } from "../types/caroussel";
 import {
-  buildTemplateElements,
-  resolvePaletteByTemplate,
-  resolveSlideRole,
-  sanitizeImageElements,
-  truncateText,
-  type SlideCopy,
+  buildLayeredTemplateCarousel,
   type TemplateId,
 } from "../../../shared/templateEngine";
 import "./ShapePlayground.css";
@@ -74,94 +69,8 @@ function makeMockCarousel(themeToken: string): LayoutCarousel {
   };
 }
 
-function toCopy(slide: LayoutCarousel["slides"][number]): SlideCopy {
-  const extras = Array.isArray(slide.bullets)
-    ? slide.bullets.map((item) => truncateText(item, 90)).filter(Boolean)
-    : [];
-
-  return {
-    heading: truncateText(slide.headline, 140),
-    support: truncateText(slide.body ?? "", 320),
-    extras,
-  };
-}
-
-function toLayeredSlide(slide: { id: string; elements: Array<{ type: string;[key: string]: unknown }> }) {
-  const background: Array<{ type: string;[key: string]: unknown }> = [];
-  const atmosphere: Array<{ type: string;[key: string]: unknown }> = [];
-  const content: Array<{ type: string;[key: string]: unknown }> = [];
-  const ui: Array<{ type: string;[key: string]: unknown }> = [];
-
-  for (const el of slide.elements ?? []) {
-    if (el.type === "background") {
-      background.push(el);
-      continue;
-    }
-
-    if (
-      el.type === "backgroundImage" ||
-      el.type === "noise" ||
-      el.type === "gradientRect" ||
-      el.type === "glow"
-    ) {
-      atmosphere.push(el);
-      continue;
-    }
-
-    content.push(el);
-  }
-
-  return { id: slide.id, layers: { background, atmosphere, content, ui } };
-}
-
 function buildLocalPreview(templateId: LocalTemplateId, mock: LayoutCarousel): CanvasCarousel {
-  const palette = resolvePaletteByTemplate(templateId);
-
-  const slides = mock.slides.slice(0, 8).map((slide, index, all) => {
-    const role =
-      slide.role === "cover"
-        ? "hook"
-        : slide.role === "cta"
-          ? "cta"
-          : resolveSlideRole(index, all.length);
-
-    const elements = buildTemplateElements({
-      templateId,
-      slideIndex: index,
-      slideCount: all.length,
-      role,
-      copy: toCopy(slide),
-      palette,
-    });
-
-    const imagePrompt = slide.notes?.trim();
-    const withImagePrompt = imagePrompt
-      ? sanitizeImageElements(
-        elements.map((element) => {
-          if (element.type === "image" || element.type === "backgroundImage") {
-            return { ...element, prompt: imagePrompt };
-          }
-          return element;
-        })
-      )
-      : sanitizeImageElements(elements);
-
-    return toLayeredSlide({
-      id: slide.id || `s${index + 1}`,
-      elements: withImagePrompt,
-    });
-  });
-
-  return {
-    meta: {
-      title: mock.meta.title ?? "Playground",
-      style: templateId,
-      palette,
-      objective: mock.meta.objective,
-      theme: mock.meta.theme,
-    },
-    slides: slides as any,
-  };
+  return buildLayeredTemplateCarousel(templateId, mock as any) as unknown as CanvasCarousel;
 }
 
 export default function ShapePlayground() {

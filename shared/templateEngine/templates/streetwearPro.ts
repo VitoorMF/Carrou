@@ -13,8 +13,7 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
     const useSplitHero = role !== "cta" && (slideIndex === 0 || slideIndex === 1 || slideIndex === 2 || slideIndex === 3);
     const textOnRight = useSplitHero && slideIndex % 2 === 1;
     const textX = textOnRight ? 560 : 72;
-    const headingX = 72;
-    const textW = textOnRight ? 460 : 620;
+
     const supportW = textOnRight ? 430 : 360;
     const extrasW = textOnRight ? 430 : 560;
     const labelX = textOnRight ? 560 : 72;
