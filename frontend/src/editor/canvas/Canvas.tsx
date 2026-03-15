@@ -35,13 +35,14 @@ type CanvasImageElementProps = {
     el: Extract<El, { type: "image" | "backgroundImage" | "noise" }>;
     renderedPosition: { x: number; y: number };
     selected: boolean;
-    isEditableImage: boolean;
+    isSelectable: boolean;
+    isDraggable: boolean;
     onSelect: () => void;
     onDragMove: (event: any) => void;
     onDragEnd: (event: any) => void;
 };
 
-const MIN_ZOOM = 0.25;
+const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 1;
 
 function normalizeFontStyle(raw?: string, isHeading?: boolean): "normal" | "bold" | "italic" | "bold italic" {
@@ -67,7 +68,8 @@ function CanvasImageElement({
     el,
     renderedPosition,
     selected,
-    isEditableImage,
+    isSelectable,
+    isDraggable,
     onSelect,
     onDragMove,
     onDragEnd,
@@ -82,17 +84,61 @@ function CanvasImageElement({
 
         if (isBackground) {
             return (
-                <Rect
-                    x={el.x ?? 0}
-                    y={el.y ?? 0}
-                    width={el.width ?? DOC_W}
-                    height={el.height ?? DOC_H}
-                    fillLinearGradientStartPoint={{ x: 0, y: 0 }}
-                    fillLinearGradientEndPoint={{ x: el.width ?? DOC_W, y: el.height ?? DOC_H }}
-                    fillLinearGradientColorStops={[0, "rgba(80,80,80,0.3)", 1, "rgba(20,20,20,0.1)"]}
-                    opacity={el.opacity ?? 0.6}
-                    listening={false}
-                />
+                <Group
+                    x={renderedPosition.x}
+                    y={renderedPosition.y}
+                    listening={isSelectable}
+                    draggable={isDraggable}
+                    onClick={onSelect}
+                    onTap={onSelect}
+                    onDragMove={onDragMove}
+                    onDragEnd={onDragEnd}
+                >
+                    <Rect
+                        x={0}
+                        y={0}
+                        width={el.width ?? DOC_W}
+                        height={el.height ?? DOC_H}
+                        fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+                        fillLinearGradientEndPoint={{ x: el.width ?? DOC_W, y: el.height ?? DOC_H }}
+                        fillLinearGradientColorStops={[0, "rgba(80,80,80,0.32)", 1, "rgba(20,20,20,0.12)"]}
+                        opacity={el.opacity ?? 0.7}
+                        listening={isSelectable}
+                    />
+                    <Rect
+                        x={0}
+                        y={0}
+                        width={el.width ?? DOC_W}
+                        height={el.height ?? DOC_H}
+                        fill="rgba(8,10,15,0.14)"
+                        stroke={selected ? "rgba(20,93,243,0.85)" : "rgba(255,255,255,0.18)"}
+                        strokeWidth={selected ? 2 : 1.4}
+                        dash={[12, 10]}
+                        listening={false}
+                    />
+                    <Rect
+                        x={32}
+                        y={28}
+                        width={104}
+                        height={30}
+                        cornerRadius={15}
+                        fill="rgba(15,23,42,0.6)"
+                        listening={false}
+                    />
+                    <Text
+                        x={32}
+                        y={36}
+                        width={104}
+                        text="BG IMAGE"
+                        fill="rgba(255,255,255,0.92)"
+                        fontFamily="Sora"
+                        fontStyle="bold"
+                        fontSize={11}
+                        align="center"
+                        letterSpacing={1}
+                        listening={false}
+                    />
+                </Group>
             );
         }
 
@@ -104,8 +150,8 @@ function CanvasImageElement({
             <Group
                 x={renderedPosition.x}
                 y={renderedPosition.y}
-                listening={isEditableImage}
-                draggable={isEditableImage}
+                listening={isSelectable}
+                draggable={isDraggable}
                 onClick={onSelect}
                 onTap={onSelect}
                 onDragMove={onDragMove}
@@ -122,7 +168,7 @@ function CanvasImageElement({
                     cornerRadius={radius}
                     stroke={selected ? "rgba(20,93,243,0.85)" : undefined}
                     strokeWidth={selected ? 2 : 0}
-                    listening={isEditableImage}
+                    listening={isSelectable}
                 />
                 <Rect
                     x={0}
@@ -203,13 +249,13 @@ function CanvasImageElement({
 
     return (
         <Group
-            x={renderedPosition.x}
-            y={renderedPosition.y}
-            listening={isEditableImage}
-            draggable={isEditableImage}
-            onClick={onSelect}
-            onTap={onSelect}
-            onDragMove={onDragMove}
+                x={renderedPosition.x}
+                y={renderedPosition.y}
+                listening={isSelectable}
+                draggable={isDraggable}
+                onClick={onSelect}
+                onTap={onSelect}
+                onDragMove={onDragMove}
             onDragEnd={onDragEnd}
         >
             <Image
@@ -222,7 +268,7 @@ function CanvasImageElement({
                 rotation={(el as any).rotate ?? 0}
                 cornerRadius={radius}
                 crop={{ x: cropX, y: cropY, width: cropW, height: cropH }}
-                listening={isEditableImage}
+                listening={isSelectable}
                 shadowColor={(el as any).shadowColor}
                 shadowBlur={(el as any).shadowBlur}
                 shadowOffsetX={(el as any).shadowOffsetX}
@@ -469,7 +515,8 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(
                             el={el}
                             renderedPosition={getRenderedPosition(el)}
                             selected={isSelected(el)}
-                            isEditableImage={el.type === "image"}
+                            isSelectable={el.type === "backgroundImage"}
+                            isDraggable={false}
                             onSelect={() => selectElement(el)}
                             onDragMove={(event) => handleDragMove(el, event.target)}
                             onDragEnd={(event) => handleDragEnd(el, event.target)}
@@ -633,7 +680,8 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(
                             el={el}
                             renderedPosition={getRenderedPosition(el)}
                             selected={isSelected(el)}
-                            isEditableImage
+                            isSelectable
+                            isDraggable
                             onSelect={() => selectElement(el)}
                             onDragMove={(event) => handleDragMove(el, event.target)}
                             onDragEnd={(event) => handleDragEnd(el, event.target)}

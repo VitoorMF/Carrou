@@ -31,7 +31,7 @@ function PencilIcon() {
 
 function CoinIcon() {
     return (
-        <img src={token} alt="Token" />
+        <img src={token} alt="Créditos" />
     );
 }
 
@@ -41,7 +41,7 @@ export function AppSidebar({ avatarUrl, initials = "U" }: AppSidebarProps) {
 
     const isDashboardActive = location.pathname === "/" || location.pathname.startsWith("/editor/");
     const isCreateActive = location.pathname.startsWith("/create");
-    const isPlansActive = location.pathname.startsWith("/plans");
+    const isPlansActive = location.pathname.startsWith("/plans") || location.pathname.startsWith("/billing");
     const isProfileActive = location.pathname.startsWith("/profile");
 
     return (
@@ -74,9 +74,9 @@ export function AppSidebar({ avatarUrl, initials = "U" }: AppSidebarProps) {
                 <button
                     type="button"
                     className={`sidebar_nav_item ${isPlansActive ? "active" : ""}`}
-                    onClick={() => navigate("/plans")}
-                    title="Planos"
-                    aria-label="Planos"
+                    onClick={() => navigate("/billing")}
+                    title="Billing"
+                    aria-label="Billing"
                 >
                     <CoinIcon />
                 </button>

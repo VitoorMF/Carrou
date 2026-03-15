@@ -1,6 +1,7 @@
 import { DOC_H, DOC_W, truncateText, withAlpha } from "../shared";
 import type { CarouselElement, TemplateBuildParams } from "../types";
 
+
 function buildEditorialPrompt(heading: string) {
     return [
         `realistic editorial photography about ${heading || "design communication"}`,
@@ -10,7 +11,10 @@ function buildEditorialPrompt(heading: string) {
         "high-end instagram visual",
         "vertical composition 4:5",
         "space for text overlay",
-        "no text overlay in image",
+        "clean photographic background",
+        "not a poster, not a magazine cover, not a flyer",
+        "no text, no typography, no letters, no words, no logo, no watermark, no caption",
+        "no headline printed in the scene",
     ].join(", ");
 }
 
@@ -45,7 +49,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
         elements.push(
             {
                 id: `hero_${slideIndex}`,
-                type: "image",
+                type: "backgroundImage",
                 x: 0,
                 y: 0,
                 width: DOC_W,
@@ -64,7 +68,32 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
                 kind: "linear",
                 start: { x: 0, y: 0 },
                 end: { x: 0, y: DOC_H },
-                stops: [0, "rgba(0,0,0,0.15)", 0.45, "rgba(0,0,0,0.42)", 1, "rgba(0,0,0,0.7)"],
+                stops: [
+                    0, "rgba(10,10,10,0.62)",
+                    0.32, "rgba(10,10,10,0.46)",
+                    0.58, "rgba(10,10,10,0.26)",
+                    0.8, "rgba(10,10,10,0.08)",
+                    1, "rgba(10,10,10,0)",
+                ],
+                opacity: 1,
+            },
+            {
+                id: `overlay_text_zone_${slideIndex}`,
+                type: "gradientRect",
+                x: 0,
+                y: 0,
+                width: 860,
+                height: DOC_H,
+                kind: "linear",
+                start: { x: 0, y: 0 },
+                end: { x: 860, y: 0 },
+                stops: [
+                    0, "rgba(10,10,10,0.62)",
+                    0.32, "rgba(10,10,10,0.46)",
+                    0.58, "rgba(10,10,10,0.26)",
+                    0.8, "rgba(10,10,10,0.08)",
+                    1, "rgba(10,10,10,0)",
+                ],
                 opacity: 1,
             },
             {

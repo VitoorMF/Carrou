@@ -206,13 +206,13 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="app_shell">
+        <div className="app_shell app_shell_locked">
             <AppSidebar
-                avatarUrl={userData?.avatarUrl ?? null}
+                avatarUrl={userData?.avatarUrl ?? user?.photoURL ?? null}
                 initials={userData?.displayName?.[0]?.toUpperCase() ?? user?.displayName?.[0]?.toUpperCase() ?? "U"}
             />
 
-            <main className="app_shell_main">
+            <main className="app_shell_main app_shell_main_scroll">
                 <div className="profile_page">
                     <div className="profile_surface">
                         <header className="profile_header">
@@ -221,10 +221,20 @@ export default function ProfilePage() {
                                 <h1>Editar perfil</h1>
                                 <p>Atualize seus dados pessoais e como sua conta aparece no app.</p>
                             </div>
+                            <div className="profile_header_badge">
+                                <span>Perfil público</span>
+                                <strong>{displayName.trim() || "Seu nome"}</strong>
+                            </div>
                         </header>
 
                         <section className="profile_body">
                             <div className="profile_avatar_card">
+                                <div className="profile_avatar_intro">
+                                    <p className="profile_section_label">Identidade</p>
+                                    <h2>Sua presença no app</h2>
+                                    <p>Foto, nome e especialização ajudam a personalizar seus carrosséis e seu perfil.</p>
+                                </div>
+
                                 {avatarUrl ? (
                                     <img src={avatarUrl} alt="Avatar" className="profile_avatar" />
                                 ) : (
@@ -261,28 +271,27 @@ export default function ProfilePage() {
                                     )}
                                 </div>
 
+                                <p className="profile_avatar_hint">Use uma foto nítida para o avatar aparecer melhor nos templates.</p>
+
                                 <div className="profile_balance">
                                     <span>Saldo de tokens</span>
                                     <strong>{tokensBalance}</strong>
+                                    <small>Disponíveis para gerar e iterar mais rápido</small>
                                 </div>
                             </div>
 
                             <div className="profile_form">
+                                <div className="profile_form_intro">
+                                    <p className="profile_section_label">Dados da conta</p>
+                                    <h2>Informações básicas</h2>
+                                </div>
+
                                 <label>
                                     Nome de exibicao
                                     <input
                                         value={displayName}
                                         onChange={(event) => setDisplayName(event.target.value)}
                                         placeholder="Seu nome"
-                                    />
-                                </label>
-
-                                <label>
-                                    URL do avatar
-                                    <input
-                                        value={avatarUrl}
-                                        onChange={(event) => setAvatarUrl(event.target.value)}
-                                        placeholder="https://..."
                                     />
                                 </label>
 

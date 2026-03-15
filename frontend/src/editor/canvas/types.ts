@@ -165,7 +165,15 @@ type El =
         y: number;
         width: number;
         height: number;
-        url: string;
+        url?: string;
+        src?: string;
+        prompt?: string;
+        radius?: number;
+        borderRadius?: number;
+        cover?: "cover" | "contain";
+        fit?: "cover" | "contain";
+        rotate?: number;
+        draggable?: boolean;
         opacity?: number;
         listening?: boolean;
     };

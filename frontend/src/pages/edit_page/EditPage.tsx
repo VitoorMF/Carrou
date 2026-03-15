@@ -1,11 +1,15 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type TouchEvent } from "react";
 import { onSnapshot, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useParams } from "react-router-dom";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { Canvas, type CanvasRef } from "../../editor/canvas/Canvas";
 import { type Carousel } from "../../editor/canvas/types";
+import { useAuth } from "../../lib/hooks/useAuth";
+import { applyProfileCardIdentity } from "../../lib/applyProfileCardIdentity";
 import { router } from "../../router";
 import { auth, db, storage } from "../../services/firebase";
+import { findTemplateById, type TemplateId } from "../../templates/templateCatalog";
+import type { UserData } from "../../types/userData";
 import "./EditPage.css";
 
 type EditorElement = {
@@ -33,7 +37,8 @@ type InspectorElementEntry = {
     layer: "background" | "atmosphere" | "content" | "ui" | "flat";
 };
 
-type EditableElementType = "text" | "image";
+type EditableElementType = "text" | "image" | "backgroundImage";
+type MobilePanel = "slides" | "inspector" | null;
 type PaletteKey = "bg" | "text" | "muted" | "accent" | "accent2";
 type EditorPalette = {
     bg: string;
@@ -49,62 +54,166 @@ type PalettePreset = {
     palette: EditorPalette;
 };
 
-const MIN_ZOOM = 0.35;
+const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 0.9;
 const ZOOM_STEP = 0.05;
 const DOC_W = 1080;
 const DOC_H = 1350;
 const STAGE_PADDING = 40;
-const PALETTE_PRESETS: PalettePreset[] = [
-    {
-        id: "classic-light",
-        label: "Classic",
-        description: "Claro e equilibrado",
-        palette: {
-            bg: "#F8FAFC",
-            text: "#111827",
-            muted: "#6B7280",
-            accent: "#2563EB",
-            accent2: "#0F766E",
+const TEMPLATE_PALETTE_PRESETS: Record<TemplateId, PalettePreset[]> = {
+    microBlogBold: [
+        {
+            id: "microblog-paper",
+            label: "Paper",
+            description: "Claro e editorial",
+            palette: {
+                bg: "#F5F5F0",
+                text: "#0A0A0A",
+                muted: "#555555",
+                accent: "#2563EB",
+                accent2: "#DC2626",
+            },
         },
-    },
-    {
-        id: "dark",
-        label: "Dark",
-        description: "Contraste alto",
-        palette: {
-            bg: "#0F172A",
-            text: "#F8FAFC",
-            muted: "#94A3B8",
-            accent: "#38BDF8",
-            accent2: "#F97316",
+        {
+            id: "microblog-night",
+            label: "Night",
+            description: "Escuro e direto",
+            palette: {
+                bg: "#0F172A",
+                text: "#F8FAFC",
+                muted: "#94A3B8",
+                accent: "#38BDF8",
+                accent2: "#F97316",
+            },
         },
-    },
-    {
-        id: "warm",
-        label: "Warm",
-        description: "Mais humano e editorial",
-        palette: {
-            bg: "#FFF7ED",
-            text: "#431407",
-            muted: "#9A3412",
-            accent: "#EA580C",
-            accent2: "#C2410C",
+        {
+            id: "microblog-ink",
+            label: "Ink",
+            description: "Mais sóbrio e jornal",
+            palette: {
+                bg: "#F8FAFC",
+                text: "#111827",
+                muted: "#6B7280",
+                accent: "#1D4ED8",
+                accent2: "#0F766E",
+            },
         },
-    },
-    {
-        id: "bold",
-        label: "Bold",
-        description: "Mais energia visual",
-        palette: {
-            bg: "#FFF7F3",
-            text: "#1F2937",
-            muted: "#6B7280",
-            accent: "#DC2626",
-            accent2: "#7C3AED",
+    ],
+    editorial3D: [
+        {
+            id: "editorial-aqua",
+            label: "Aqua",
+            description: "Frio e tridimensional",
+            palette: {
+                bg: "#EFF8F8",
+                text: "#393939",
+                muted: "#646464",
+                accent: "#006884",
+                accent2: "#375F65",
+            },
         },
-    },
-];
+        {
+            id: "editorial-lilac",
+            label: "Lilac",
+            description: "Mais experimental",
+            palette: {
+                bg: "#F4F2FF",
+                text: "#221B3A",
+                muted: "#7A7396",
+                accent: "#6D5EF8",
+                accent2: "#EC4899",
+            },
+        },
+        {
+            id: "editorial-sand",
+            label: "Sand",
+            description: "Macio e premium",
+            palette: {
+                bg: "#FAF4EC",
+                text: "#3B2F2F",
+                muted: "#8A7469",
+                accent: "#C08457",
+                accent2: "#6B7280",
+            },
+        },
+    ],
+    luxuryMinimal: [
+        {
+            id: "luxury-gold",
+            label: "Gold",
+            description: "Clássico premium",
+            palette: {
+                bg: "#F0EBE1",
+                text: "#1A1208",
+                muted: "#7A6A55",
+                accent: "#C2922A",
+                accent2: "#8B4513",
+            },
+        },
+        {
+            id: "luxury-noir",
+            label: "Noir",
+            description: "Luxo mais escuro",
+            palette: {
+                bg: "#161616",
+                text: "#F6F1E8",
+                muted: "#B8AFA0",
+                accent: "#D4A64A",
+                accent2: "#8B5E3C",
+            },
+        },
+        {
+            id: "luxury-rose",
+            label: "Rose",
+            description: "Suave e sofisticado",
+            palette: {
+                bg: "#F8F2EF",
+                text: "#2B1D1A",
+                muted: "#8E746A",
+                accent: "#C87B6A",
+                accent2: "#9A5B4F",
+            },
+        },
+    ],
+    streetwearPro: [
+        {
+            id: "streetwear-fire",
+            label: "Fire",
+            description: "Contraste alto e energia",
+            palette: {
+                bg: "#0D0D0D",
+                text: "#FFFFFF",
+                muted: "#A3A3A3",
+                accent: "#FF5500",
+                accent2: "#FFD600",
+            },
+        },
+        {
+            id: "streetwear-neon",
+            label: "Neon",
+            description: "Mais urbano e vibrante",
+            palette: {
+                bg: "#050816",
+                text: "#F8FAFC",
+                muted: "#94A3B8",
+                accent: "#22D3EE",
+                accent2: "#F43F5E",
+            },
+        },
+        {
+            id: "streetwear-lime",
+            label: "Lime",
+            description: "Agressivo e moderno",
+            palette: {
+                bg: "#101010",
+                text: "#F5F5F5",
+                muted: "#B3B3B3",
+                accent: "#A3E635",
+                accent2: "#F97316",
+            },
+        },
+    ],
+};
 const USE_FIREBASE_EMULATORS = import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true";
 const GENERATE_IMAGE_ENDPOINT = USE_FIREBASE_EMULATORS
     ? "http://127.0.0.1:5001/carrosselize/us-central1/generateImageForElement"
@@ -115,15 +224,18 @@ const EXPORT_ZIP_ENDPOINT = USE_FIREBASE_EMULATORS
 
 export default function EditPage() {
     const { projectId } = useParams();
+    const { user } = useAuth();
     const canvasRef = useRef<CanvasRef>(null);
     const stageContainerRef = useRef<HTMLDivElement | null>(null);
     const imagePickerRef = useRef<HTMLInputElement | null>(null);
     const persistTimeoutRef = useRef<number | null>(null);
+    const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+    const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null);
 
-    const [project, setProject] = useState<any>(null);
     const [projectName, setProjectName] = useState("Projeto sem nome");
     const [serverCarousel, setServerCarousel] = useState<Carousel | null>(null);
     const [originalPalette, setOriginalPalette] = useState<EditorPalette | null>(null);
+    const [userData, setUserData] = useState<UserData | null>(null);
 
     const [slides, setSlides] = useState<EditorSlide[]>([{ id: crypto.randomUUID(), name: "Slide 1", elements: [] }]);
     const [activeSlideId, setActiveSlideId] = useState(slides[0].id);
@@ -131,6 +243,7 @@ export default function EditPage() {
 
     const [zoom, setZoom] = useState(0.56);
     const [hasManualZoom, setHasManualZoom] = useState(false);
+    const [mobilePanel, setMobilePanel] = useState<MobilePanel>(null);
     const [liveElementPosition, setLiveElementPosition] = useState<{ id: string; x: number; y: number } | null>(null);
     const [isAdvancedPaletteOpen, setIsAdvancedPaletteOpen] = useState(false);
     const [isLoadingProject, setIsLoadingProject] = useState(true);
@@ -151,7 +264,6 @@ export default function EditPage() {
 
     function updateSlidesFromCarousel(nextCarousel: Carousel) {
         setServerCarousel(nextCarousel);
-        setOriginalPalette(getResolvedPalette(nextCarousel.meta.palette));
         const editorSlides = firestoreSlidesToEditorSlides(nextCarousel.slides as any[]);
         const fallbackSlideId = editorSlides[0]?.id ?? crypto.randomUUID();
 
@@ -160,7 +272,19 @@ export default function EditPage() {
             const exists = editorSlides.some((s) => s.id === prev);
             return exists ? prev : fallbackSlideId;
         });
-        setSelectedElementId(null);
+        setSelectedElementId((prev) => {
+            if (!prev) {
+                return null;
+            }
+
+            const nextActiveSlideId = editorSlides.some((s) => s.id === activeSlideId)
+                ? activeSlideId
+                : fallbackSlideId;
+            const nextActiveSlide = editorSlides.find((slide) => slide.id === nextActiveSlideId) ?? editorSlides[0];
+            const stillExists = nextActiveSlide?.elements.some((element) => element.id === prev);
+
+            return stillExists ? prev : null;
+        });
         setLiveElementPosition(null);
     }
 
@@ -190,16 +314,42 @@ export default function EditPage() {
         () => getResolvedPalette(serverCarousel?.meta?.palette),
         [serverCarousel]
     );
+    const activeTemplateId = useMemo(() => {
+        const rawTemplateId = String(serverCarousel?.meta?.style ?? "").trim();
+        return findTemplateById(rawTemplateId)?.id ?? "microBlogBold";
+    }, [serverCarousel]);
+    const palettePresets = useMemo(
+        () => TEMPLATE_PALETTE_PRESETS[activeTemplateId] ?? TEMPLATE_PALETTE_PRESETS.microBlogBold,
+        [activeTemplateId]
+    );
+    const renderedCarousel = useMemo(
+        () => applyProfileCardIdentity(serverCarousel, {
+            displayName: userData?.displayName ?? user?.displayName ?? "",
+            specialization: userData?.specialization ?? "",
+            avatarUrl: userData?.avatarUrl ?? user?.photoURL ?? "",
+        }),
+        [serverCarousel, userData, user]
+    );
     const activePalettePresetId = useMemo(
         () => {
             if (originalPalette && palettesEqual(originalPalette, activePalette)) {
                 return "original";
             }
 
-            return PALETTE_PRESETS.find((preset) => palettesEqual(preset.palette, activePalette))?.id ?? null;
+            return palettePresets.find((preset) => palettesEqual(preset.palette, activePalette))?.id ?? null;
         },
-        [activePalette, originalPalette]
+        [activePalette, originalPalette, palettePresets]
     );
+    const editableSelectedElement = useMemo(
+        () => (
+            selectedEditableElement && isEditableElementType(selectedEditableElement.type)
+                ? selectedEditableElement
+                : null
+        ),
+        [selectedEditableElement]
+    );
+    const isInspectorEditingElement = Boolean(editableSelectedElement);
+    const selectedElementKindLabel = editableSelectedElement?.type === "text" ? "Texto" : "Imagem";
 
     useEffect(() => {
         if (!projectId) {
@@ -214,7 +364,6 @@ export default function EditPage() {
         const ref = doc(db, "projects", projectId);
         const unsub = onSnapshot(ref, async (snap) => {
             if (!snap.exists()) {
-                setProject(null);
                 setServerCarousel(null);
                 setIsLoadingProject(false);
                 setErrorMessage("Esse projeto não existe mais.");
@@ -223,10 +372,10 @@ export default function EditPage() {
 
             try {
                 const data = snap.data();
-                setProject(data);
                 setProjectName(data?.meta?.title ?? "Projeto sem nome");
 
                 const raw = projectDocToCarousel(data);
+                setOriginalPalette(extractOriginalPalette(data, raw));
                 updateSlidesFromCarousel(raw);
                 setIsLoadingProject(false);
             } catch (error) {
@@ -238,6 +387,27 @@ export default function EditPage() {
 
         return () => unsub();
     }, [projectId]);
+
+    useEffect(() => {
+        if (!user) {
+            setUserData(null);
+            return;
+        }
+
+        const unsub = onSnapshot(
+            doc(db, "users", user.uid),
+            (snap) => {
+                if (snap.exists()) {
+                    setUserData(snap.data() as UserData);
+                }
+            },
+            (err) => {
+                console.error("Erro ao carregar dados do usuário:", err);
+            }
+        );
+
+        return () => unsub();
+    }, [user]);
 
     useEffect(() => {
         return () => {
@@ -302,6 +472,12 @@ export default function EditPage() {
         };
     }, [hasManualZoom]);
 
+    useEffect(() => {
+        if (selectedElementId) {
+            setMobilePanel("inspector");
+        }
+    }, [selectedElementId]);
+
     function zoomIn() {
         setHasManualZoom(true);
         setZoom((prev) => Math.min(MAX_ZOOM, Number((prev + ZOOM_STEP).toFixed(2))));
@@ -330,6 +506,79 @@ export default function EditPage() {
         setActiveSlideId(next.id);
         setSelectedElementId(null);
         setLiveElementPosition(null);
+    }
+
+    function handleStageTouchStart(event: TouchEvent<HTMLDivElement>) {
+        if (event.touches.length === 2) {
+            pinchStartRef.current = {
+                distance: getTouchDistance(event.touches[0], event.touches[1]),
+                zoom,
+            };
+            swipeStartRef.current = null;
+            return;
+        }
+
+        pinchStartRef.current = null;
+
+        const touch = event.touches[0];
+        if (!touch || event.touches.length !== 1) {
+            swipeStartRef.current = null;
+            return;
+        }
+
+        swipeStartRef.current = {
+            x: touch.clientX,
+            y: touch.clientY,
+            time: Date.now(),
+        };
+    }
+
+    function handleStageTouchMove(event: TouchEvent<HTMLDivElement>) {
+        if (event.touches.length !== 2 || !pinchStartRef.current) {
+            return;
+        }
+
+        const distance = getTouchDistance(event.touches[0], event.touches[1]);
+        const scaleFactor = distance / pinchStartRef.current.distance;
+        const nextZoom = Math.min(
+            MAX_ZOOM,
+            Math.max(MIN_ZOOM, Number((pinchStartRef.current.zoom * scaleFactor).toFixed(2)))
+        );
+
+        setHasManualZoom(true);
+        setZoom((current) => (Math.abs(current - nextZoom) < 0.01 ? current : nextZoom));
+    }
+
+    function handleStageTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
+        if (event.touches.length < 2) {
+            pinchStartRef.current = null;
+        }
+
+        const start = swipeStartRef.current;
+        swipeStartRef.current = null;
+
+        if (!start || event.changedTouches.length !== 1 || selectedElementId) {
+            return;
+        }
+
+        const touch = event.changedTouches[0];
+        const deltaX = touch.clientX - start.x;
+        const deltaY = touch.clientY - start.y;
+        const elapsed = Date.now() - start.time;
+
+        const isHorizontalSwipe = Math.abs(deltaX) > 56 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3;
+        const isFastEnough = elapsed < 700;
+
+        if (!isHorizontalSwipe || !isFastEnough) {
+            return;
+        }
+
+        if (deltaX < 0) {
+            goToSlide(activeSlideIndex + 1);
+            return;
+        }
+
+        goToSlide(activeSlideIndex - 1);
     }
 
     function exportActiveSlide() {
@@ -490,7 +739,11 @@ export default function EditPage() {
     }
 
     async function generateSelectedImage() {
-        if (!projectId || !selectedEditableElement || selectedEditableElement.type !== "image") {
+        if (
+            !projectId
+            || !selectedEditableElement
+            || (selectedEditableElement.type !== "image" && selectedEditableElement.type !== "backgroundImage")
+        ) {
             return;
         }
 
@@ -524,7 +777,12 @@ export default function EditPage() {
 
     async function handleImageFileChange(event: ChangeEvent<HTMLInputElement>) {
         const file = event.target.files?.[0];
-        if (!file || !projectId || !selectedEditableElement || selectedEditableElement.type !== "image") {
+        if (
+            !file
+            || !projectId
+            || !selectedEditableElement
+            || (selectedEditableElement.type !== "image" && selectedEditableElement.type !== "backgroundImage")
+        ) {
             return;
         }
 
@@ -559,6 +817,31 @@ export default function EditPage() {
         } finally {
             event.target.value = "";
         }
+    }
+
+    async function removeSelectedImage() {
+        if (
+            !selectedEditableElement
+            || (selectedEditableElement.type !== "image" && selectedEditableElement.type !== "backgroundImage")
+        ) {
+            return;
+        }
+
+        const nextCarousel = updateCarouselElement(
+            serverCarousel,
+            activeSlideId,
+            selectedEditableElement.id,
+            { src: "", status: "idle" }
+        );
+
+        updateEditableElement(selectedEditableElement.id, { src: "", status: "idle" });
+
+        if (nextCarousel) {
+            await persistCarousel(nextCarousel);
+        }
+
+        setStatusMessage("Imagem removida. Você pode gerar outra ou escolher da galeria.");
+        setErrorMessage(null);
     }
 
     function handleElementPositionChange(elementId: string, position: { x: number; y: number }) {
@@ -621,7 +904,9 @@ export default function EditPage() {
             }
 
             const previousPalette = getResolvedPalette(current.meta.palette);
-            return recolorCarouselPalette(current, previousPalette, palette);
+            const nextCarousel = recolorCarouselPalette(current, previousPalette, palette);
+            scheduleCarouselPersist(nextCarousel, 300);
+            return nextCarousel;
         });
     }
 
@@ -670,7 +955,7 @@ export default function EditPage() {
             </header>
 
             <div className="editor_workspace">
-                <aside className="panel panel_left">
+                <aside className={`panel panel_left ${mobilePanel === "slides" ? "is_mobile_open" : ""}`}>
                     <div className="panel_title_row">
                         <h3>Páginas</h3>
                         <span>{slides.length}</span>
@@ -681,11 +966,14 @@ export default function EditPage() {
                             <button
                                 key={slide.id}
                                 className={`slide_item ${slide.id === activeSlideId ? "active" : ""}`}
-                                onClick={() => goToSlide(index)}
+                                onClick={() => {
+                                    goToSlide(index);
+                                    setMobilePanel(null);
+                                }}
                                 type="button"
                             >
                                 <span className="slide_index">{index + 1}</span>
-                                <span className="slide_text">{slide.name}</span>
+                                <span className="slide_text">{getSlideListLabel(slide, index)}</span>
                             </button>
                         ))}
                     </div>
@@ -693,21 +981,30 @@ export default function EditPage() {
                 </aside>
 
                 <main className="stage_section">
-                    <div className="stage_status_bar">
-                        <div>
-                            Slide {activeSlideIndex + 1} de {slides.length}
-                        </div>
-                        <div className="status_inline">
-                            {isLoadingProject && <span>Carregando projeto...</span>}
-                            {!isLoadingProject && statusMessage && <span>{statusMessage}</span>}
-                            {errorMessage && <span className="status_error">{errorMessage}</span>}
-                        </div>
-                    </div>
 
-                    <div className="stage_container" ref={stageContainerRef}>
+                    <div>
+                        <div className="stage_status_bar">
+                            <div>
+                                Slide {activeSlideIndex + 1} de {slides.length}
+                            </div>
+                            <div className="status_inline">
+                                {isLoadingProject && <span>Carregando projeto...</span>}
+                                {!isLoadingProject && statusMessage && <span>{statusMessage}</span>}
+                                {errorMessage && <span className="status_error">{errorMessage}</span>}
+                            </div>
+                        </div>
+                        <div className="mobile_swipe_hint">Deslize com um dedo para trocar de slide. Use dois dedos para zoom.</div>
+                    </div>
+                    <div
+                        className="stage_container"
+                        ref={stageContainerRef}
+                        onTouchStart={handleStageTouchStart}
+                        onTouchMove={handleStageTouchMove}
+                        onTouchEnd={handleStageTouchEnd}
+                    >
                         <Canvas
                             ref={canvasRef}
-                            carousel={serverCarousel}
+                            carousel={renderedCarousel}
                             slideIndex={activeSlideIndex}
                             zoom={zoom}
                             selectedElementId={selectedElementId}
@@ -724,50 +1021,91 @@ export default function EditPage() {
                     </div>
                 </main>
 
-                <aside className="panel panel_right">
-                    {selectedEditableElement && isEditableElementType(selectedEditableElement.type) ? (
+                <aside className={`panel panel_right ${mobilePanel === "inspector" ? "is_mobile_open" : ""}`}>
+                    {editableSelectedElement ? (
                         <div className="inspector_card">
                             <label>Ajustes</label>
                             <div className="editor_fields">
-                                {selectedEditableElement.type === "text" && (
+                                {/* <div className="inspector_mobile_summary">
+                                    <span className="inspector_mobile_kind">{selectedElementKindLabel}</span>
+                                    <strong>{getInspectorElementPreview(
+                                        activeInspectorElements.find((element) => element.id === editableSelectedElement.id)
+                                        ?? {
+                                            id: editableSelectedElement.id,
+                                            type: editableSelectedElement.type,
+                                            name: selectedElementKindLabel,
+                                            layer: "content",
+                                        },
+                                        activeSlide
+                                    )}</strong>
+                                    <p>Toque no canvas para selecionar outro elemento ou ajuste por aqui.</p>
+                                </div> */}
+
+                                {editableSelectedElement.type === "text" && (
                                     <>
                                         <span className="field_caption">Texto</span>
                                         <textarea
                                             className="editor_textarea"
-                                            value={String(selectedEditableElement.content ?? "")}
+                                            value={String(editableSelectedElement.content ?? "")}
                                             onChange={(event) => handleTextContentChange(event.target.value)}
                                         />
                                     </>
                                 )}
 
-                                {selectedEditableElement.type === "image" && (
-                                    <div className="image_actions_block">
-                                        <span className="field_caption">Imagem</span>
-                                        <div className="image_actions_row">
-                                            <button
-                                                type="button"
-                                                className="secondary_button image_action_button"
-                                                onClick={generateSelectedImage}
-                                                disabled={isGeneratingImages}
-                                            >
-                                                {isGeneratingImages ? "Gerando..." : "Gerar com IA"}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="secondary_button image_action_button"
-                                                onClick={openImagePicker}
-                                            >
-                                                Galeria
-                                            </button>
-                                        </div>
-                                        {typeof selectedEditableElement.prompt === "string"
-                                            && selectedEditableElement.prompt.trim().length > 0 ? (
-                                                <p className="image_prompt_hint">{selectedEditableElement.prompt}</p>
+                                {(editableSelectedElement.type === "image"
+                                    || editableSelectedElement.type === "backgroundImage") && (
+                                        <div className="image_actions_block">
+                                            <span className="field_caption">Imagem</span>
+                                            <div className="image_actions_row">
+                                                <button
+                                                    type="button"
+                                                    className="secondary_button image_action_button"
+                                                    onClick={generateSelectedImage}
+                                                    disabled={isGeneratingImages}
+                                                >
+                                                    <span className="image_action_icon" aria-hidden="true">
+                                                        <svg viewBox="0 0 24 24" fill="currentColor">
+                                                            <path d="m18 9.064a3.049 3.049 0 0 0 -.9-2.164 3.139 3.139 0 0 0 -4.334 0l-11.866 11.869a3.064 3.064 0 0 0 4.33 4.331l11.87-11.869a3.047 3.047 0 0 0 .9-2.167zm-14.184 12.624a1.087 1.087 0 0 1 -1.5 0 1.062 1.062 0 0 1 0-1.5l7.769-7.77 1.505 1.505zm11.872-11.872-2.688 2.689-1.5-1.505 2.689-2.688a1.063 1.063 0 1 1 1.5 1.5zm-10.825-6.961 1.55-.442.442-1.55a1.191 1.191 0 0 1 2.29 0l.442 1.55 1.55.442a1.191 1.191 0 0 1 0 2.29l-1.55.442-.442 1.55a1.191 1.191 0 0 1 -2.29 0l-.442-1.55-1.55-.442a1.191 1.191 0 0 1 0-2.29zm18.274 14.29-1.55.442-.442 1.55a1.191 1.191 0 0 1 -2.29 0l-.442-1.55-1.55-.442a1.191 1.191 0 0 1 0-2.29l1.55-.442.442-1.55a1.191 1.191 0 0 1 2.29 0l.442 1.55 1.55.442a1.191 1.191 0 0 1 0 2.29zm-5.382-14.645 1.356-.387.389-1.358a1.042 1.042 0 0 1 2 0l.387 1.356 1.356.387a1.042 1.042 0 0 1 0 2l-1.356.387-.387 1.359a1.042 1.042 0 0 1 -2 0l-.387-1.355-1.358-.389a1.042 1.042 0 0 1 0-2z" />
+                                                        </svg>
+                                                    </span>
+                                                    <span>{isGeneratingImages ? "Gerando..." : "Gerar com IA"}</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="secondary_button image_action_button"
+                                                    onClick={openImagePicker}
+                                                >
+                                                    <span className="image_action_icon" aria-hidden="true">
+                                                        <svg viewBox="0 0 24 24" fill="currentColor">
+                                                            <path d="M19,3H12.472a1.019,1.019,0,0,1-.447-.1L8.869,1.316A3.014,3.014,0,0,0,7.528,1H5A5.006,5.006,0,0,0,0,6V18a5.006,5.006,0,0,0,5,5H19a5.006,5.006,0,0,0,5-5V8A5.006,5.006,0,0,0,19,3ZM5,3H7.528a1.019,1.019,0,0,1,.447.1l3.156,1.579A3.014,3.014,0,0,0,12.472,5H19a3,3,0,0,1,2.779,1.882L2,6.994V6A3,3,0,0,1,5,3ZM19,21H5a3,3,0,0,1-3-3V8.994l20-.113V18A3,3,0,0,1,19,21Z" />
+                                                        </svg>
+                                                    </span>
+                                                    <span>Galeria</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="secondary_button image_action_button"
+                                                    onClick={() => void removeSelectedImage()}
+                                                    disabled={!editableSelectedElement.src}
+                                                >
+                                                    <span className="image_action_icon" aria-hidden="true">
+                                                        <svg viewBox="0 0 24 24" fill="#d92d20">
+                                                            <path d="M21,4H17.9A5.009,5.009,0,0,0,13,0H11A5.009,5.009,0,0,0,6.1,4H3A1,1,0,0,0,3,6H4V19a5.006,5.006,0,0,0,5,5h6a5.006,5.006,0,0,0,5-5V6h1a1,1,0,0,0,0-2ZM11,2h2a3.006,3.006,0,0,1,2.829,2H8.171A3.006,3.006,0,0,1,11,2Zm7,17a3,3,0,0,1-3,3H9a3,3,0,0,1-3-3V6H18Z" />
+                                                            <path d="M10,18a1,1,0,0,0,1-1V11a1,1,0,0,0-2,0v6A1,1,0,0,0,10,18Z" />
+                                                            <path d="M14,18a1,1,0,0,0,1-1V11a1,1,0,0,0-2,0v6A1,1,0,0,0,14,18Z" />
+                                                        </svg>
+                                                    </span>
+                                                    <span className="del_icn">Remover</span>
+                                                </button>
+                                            </div>
+                                            {typeof editableSelectedElement.prompt === "string"
+                                                && editableSelectedElement.prompt.trim().length > 0 ? (
+                                                <p className="image_prompt_hint">{editableSelectedElement.prompt}</p>
                                             ) : null}
-                                    </div>
-                                )}
+                                        </div>
+                                    )}
 
-                                <div className="editor_grid">
+                                <div className="editor_grid editor_grid_coordinates">
                                     <label className="editor_field">
                                         <span>X</span>
                                         <input
@@ -786,6 +1124,7 @@ export default function EditPage() {
                                         />
                                     </label>
                                 </div>
+                                <p className="mobile_coordinates_hint">Posição fina disponível no desktop.</p>
                             </div>
                         </div>
                     ) : (
@@ -805,7 +1144,7 @@ export default function EditPage() {
                                         </span>
                                     </button>
 
-                                    {PALETTE_PRESETS.map((preset) => (
+                                    {palettePresets.map((preset) => (
                                         <button
                                             key={preset.id}
                                             type="button"
@@ -922,7 +1261,7 @@ export default function EditPage() {
                     )}
 
                     <div className="elements_list">
-                        {activeInspectorElements.slice(0, 10).map((element, index) => (
+                        {activeInspectorElements.slice(0, 10).map((element) => (
                             <button
                                 className={`element_row ${selectedElementId === element.id ? "active" : ""}`}
                                 key={element.id}
@@ -932,7 +1271,9 @@ export default function EditPage() {
                                 }}
                                 type="button"
                             >
-                                <span>{index + 1}</span>
+                                <span className="element_row_icon" aria-hidden="true">
+                                    {renderInspectorElementIcon(element.type)}
+                                </span>
                                 <span className="element_row_label">{getInspectorElementPreview(element, activeSlide)}</span>
                             </button>
                         ))}
@@ -941,6 +1282,39 @@ export default function EditPage() {
                         )}
                     </div>
                 </aside>
+            </div>
+            <div
+                className={`mobile_panel_backdrop ${mobilePanel ? "is_visible" : ""}`}
+                onClick={() => setMobilePanel(null)}
+                aria-hidden={!mobilePanel}
+            />
+            <div className="mobile_editor_dock">
+                <button
+                    type="button"
+                    className={`mobile_dock_button ${mobilePanel === "slides" ? "is_active" : ""}`}
+                    onClick={() => setMobilePanel((current) => current === "slides" ? null : "slides")}
+                >
+                    <span className="mobile_dock_label">Slides</span>
+                    <span className="mobile_dock_value">{slides.length}</span>
+                </button>
+                <button
+                    type="button"
+                    className={`mobile_dock_button ${mobilePanel === "inspector" ? "is_active" : ""}`}
+                    onClick={() => setMobilePanel((current) => current === "inspector" ? null : "inspector")}
+                >
+                    <span className="mobile_dock_label">{isInspectorEditingElement ? "Ajustes" : "Paleta"}</span>
+                    <span className="mobile_dock_value">
+                        {selectedElementId ? "Elemento" : "Global"}
+                    </span>
+                </button>
+                <button
+                    type="button"
+                    className="mobile_dock_button is_primary"
+                    onClick={exportActiveSlide}
+                >
+                    <span className="mobile_dock_label">Exportar</span>
+                    <span className="mobile_dock_value">PNG</span>
+                </button>
             </div>
             <input
                 ref={imagePickerRef}
@@ -1298,12 +1672,13 @@ function updateElementList(elements: any[] | undefined, elementId: string, patch
 }
 
 function isEditableElementType(type: string): type is EditableElementType {
-    return type === "text" || type === "image";
+    return type === "text" || type === "image" || type === "backgroundImage";
 }
 
 function humanizeElementType(type: string, name?: string) {
     if (type === "text") return "Texto";
     if (type === "image") return "Imagem";
+    if (type === "backgroundImage") return "Imagem de fundo";
     if (type === "profileCard") return "Card de perfil";
     if (type === "background") return "Fundo";
     if (type === "gradientRect") return "Gradiente";
@@ -1312,6 +1687,89 @@ function humanizeElementType(type: string, name?: string) {
     if (type === "shape" && name === "arrows") return "Setas";
     if (type === "shape") return "Forma";
     return type;
+}
+
+function getSlideListLabel(slide: EditorSlide, index: number) {
+    const ignoredLabels = new Set([
+        "abertura",
+        "virada",
+        "design",
+        "imagem",
+    ]);
+
+    const textCandidates = slide.elements
+        .filter((element) => element.type === "text")
+        .map((element) => {
+            const raw = String(element.content ?? "").trim();
+            const normalized = raw.toLowerCase();
+            const fontSize = Number(element.fontSize ?? 0);
+
+            return {
+                raw,
+                normalized,
+                fontSize,
+            };
+        })
+        .filter((candidate) => {
+            if (!candidate.raw) {
+                return false;
+            }
+
+            if (candidate.raw.length < 4) {
+                return false;
+            }
+
+            if (ignoredLabels.has(candidate.normalized)) {
+                return false;
+            }
+
+            if (candidate.normalized.includes("designer")) {
+                return false;
+            }
+
+            if (candidate.normalized.includes("design com propósito")) {
+                return false;
+            }
+
+            return true;
+        })
+        .sort((a, b) => b.fontSize - a.fontSize);
+
+    const best = textCandidates[0]?.raw;
+    if (!best) {
+        return `Slide ${index + 1}`;
+    }
+
+    return truncateLabel(best, 30);
+}
+
+function truncateLabel(value: string, maxLength: number) {
+    const trimmed = value.trim();
+    if (trimmed.length <= maxLength) {
+        return trimmed;
+    }
+
+    return `${trimmed.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+function renderInspectorElementIcon(type: string) {
+    if (type === "image" || type === "backgroundImage") {
+        return (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3.5" y="3.5" width="17" height="17" rx="4" />
+                <circle cx="16.5" cy="8" r="1.7" />
+                <path d="M5.5 16l4.2-4.2a1 1 0 0 1 1.4 0L14 14.5a1 1 0 0 0 1.4 0l1.1-1.1a1 1 0 0 1 1.4 0l2 2" />
+            </svg>
+        );
+    }
+
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4" y="3.5" width="16" height="17" rx="4" />
+            <path d="M9 8h6" />
+            <path d="M12 8v8" />
+        </svg>
+    );
 }
 
 function computeResponsiveZoom(container: HTMLElement) {
@@ -1338,6 +1796,18 @@ function getResolvedPalette(palette?: Carousel["meta"]["palette"]): EditorPalett
         accent: String(palette?.accent ?? "#2563eb"),
         accent2: String(palette?.accent2 ?? "#a855f7"),
     };
+}
+
+function extractOriginalPalette(data: any, fallbackCarousel: Carousel): EditorPalette {
+    if (data?.ai?.normalized?.meta?.palette) {
+        return getResolvedPalette(data.ai.normalized.meta.palette);
+    }
+
+    if (data?.ai?.content?.meta?.palette) {
+        return getResolvedPalette(data.ai.content.meta.palette);
+    }
+
+    return getResolvedPalette(fallbackCarousel.meta.palette);
 }
 
 function palettesEqual(left: EditorPalette, right: EditorPalette) {
@@ -1624,4 +2094,11 @@ function slugifyFileName(value: string) {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
+}
+
+function getTouchDistance(
+    first: { clientX: number; clientY: number },
+    second: { clientX: number; clientY: number }
+) {
+    return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY);
 }

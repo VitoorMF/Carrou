@@ -5,8 +5,11 @@ import { collection, onSnapshot, orderBy, query, where, deleteDoc, doc } from "f
 import { db, storage } from "../../services/firebase";
 import { ref as storageRef, listAll, deleteObject } from "firebase/storage";
 import { useAuth } from "../../lib/hooks/useAuth";
+import { applyProfileCardIdentity } from "../../lib/applyProfileCardIdentity";
 import token from "../../assets/icons/token_icon.svg";
 import { AppSidebar } from "../../components/app_sidebar/AppSidebar";
+import { Canvas } from "../../editor/canvas/Canvas";
+import type { Carousel } from "../../editor/canvas/types";
 import type { UserData } from "../../types/userData";
 
 type FirestoreDate = { toDate?: () => Date } | Date | undefined;
@@ -18,6 +21,8 @@ type ProjectCard = {
         style?: string;
         slideCount?: number;
     };
+    renderCarousel?: Carousel;
+    slides?: unknown[];
     updatedAt?: FirestoreDate;
 };
 
@@ -129,15 +134,18 @@ export function DashboardPage() {
 
     const filteredProjects = useMemo(() => {
         const queryValue = searchValue.trim().toLowerCase();
+        const matchingProjects = !queryValue
+            ? projects
+            : projects.filter((project) => {
+                const title = project.meta?.title?.toLowerCase() ?? "";
+                const style = project.meta?.style?.toLowerCase() ?? "";
+                return title.includes(queryValue) || style.includes(queryValue);
+            });
 
-        if (!queryValue) {
-            return projects;
-        }
-
-        return projects.filter((project) => {
-            const title = project.meta?.title?.toLowerCase() ?? "";
-            const style = project.meta?.style?.toLowerCase() ?? "";
-            return title.includes(queryValue) || style.includes(queryValue);
+        return [...matchingProjects].sort((left, right) => {
+            const leftTime = toDate(left.updatedAt)?.getTime() ?? 0;
+            const rightTime = toDate(right.updatedAt)?.getTime() ?? 0;
+            return rightTime - leftTime;
         });
     }, [projects, searchValue]);
 
@@ -172,7 +180,7 @@ export function DashboardPage() {
     return (
         <div className="app_shell">
             <AppSidebar
-                avatarUrl={userData?.avatarUrl ?? null}
+                avatarUrl={userData?.avatarUrl ?? user?.photoURL ?? null}
                 initials={userData?.displayName?.[0]?.toUpperCase() ?? user?.displayName?.[0]?.toUpperCase() ?? "U"}
             />
 
@@ -235,7 +243,10 @@ export function DashboardPage() {
                             {!loading && !error && filteredProjects.length > 0 && (
                                 <div className="projects_grid">
                                     {filteredProjects.map((project) => {
-                                        const subtitle = `${project?.meta?.slideCount ?? "-"} slides`;
+                                        const slideCount = project?.meta?.slideCount
+                                            ?? project?.renderCarousel?.slides?.length
+                                            ?? (Array.isArray(project?.slides) ? project.slides.length : null);
+                                        const subtitle = `${slideCount ?? "-"} slides`;
                                         const style = project?.meta?.style ?? "clean";
                                         const updatedAtDate = toDate(project.updatedAt);
                                         const updatedLabel = updatedAtDate
@@ -325,6 +336,17 @@ export function DashboardPage() {
                                                 </div>
 
                                                 <div className="project_preview" aria-hidden="true">
+                                                    <div className="project_preview_canvas">
+                                                        <Canvas
+                                                            carousel={applyProfileCardIdentity(project.renderCarousel ?? null, {
+                                                                displayName: userData?.displayName ?? user?.displayName ?? "",
+                                                                specialization: userData?.specialization ?? "",
+                                                                avatarUrl: userData?.avatarUrl ?? user?.photoURL ?? "",
+                                                            })}
+                                                            slideIndex={0}
+                                                            zoom={0.25}
+                                                        />
+                                                    </div>
                                                     <span className="preview_updated">Atualizado em {updatedLabel}</span>
                                                 </div>
                                             </article>

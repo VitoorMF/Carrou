@@ -17,6 +17,8 @@ const TEMPLATE_LABELS: Record<LocalTemplateId, string> = {
   microBlogBold: "Micro Blog Bold",
 };
 
+const PLAYGROUND_IMAGE_URL = "https://firebasestorage.googleapis.com/v0/b/carrosselize.firebasestorage.app/o/projects%2Fd4nMnxJKT5xBM773XnKQ%2Fslides%2Fslide2%2Fphoto_1.png?alt=media&token=1bbbcc65-340a-4caf-841e-12ea5d4171e7";
+
 function makeMockCarousel(themeToken: string): LayoutCarousel {
   return {
     meta: {
@@ -69,8 +71,36 @@ function makeMockCarousel(themeToken: string): LayoutCarousel {
   };
 }
 
+function applyPreviewImage(carousel: CanvasCarousel): CanvasCarousel {
+  return {
+    ...carousel,
+    slides: carousel.slides.map((slide) => ({
+      ...slide,
+      layers: {
+        background: (slide.layers?.background ?? []).map((element: any) =>
+          element.type === "image" || element.type === "backgroundImage"
+            ? { ...element, src: PLAYGROUND_IMAGE_URL, url: PLAYGROUND_IMAGE_URL, status: "ready" }
+            : element
+        ),
+        atmosphere: (slide.layers?.atmosphere ?? []).map((element: any) =>
+          element.type === "image" || element.type === "backgroundImage"
+            ? { ...element, src: PLAYGROUND_IMAGE_URL, url: PLAYGROUND_IMAGE_URL, status: "ready" }
+            : element
+        ),
+        content: (slide.layers?.content ?? []).map((element: any) =>
+          element.type === "image" || element.type === "backgroundImage"
+            ? { ...element, src: PLAYGROUND_IMAGE_URL, url: PLAYGROUND_IMAGE_URL, status: "ready" }
+            : element
+        ),
+        ui: slide.layers?.ui ?? [],
+      },
+    })),
+  };
+}
+
 function buildLocalPreview(templateId: LocalTemplateId, mock: LayoutCarousel): CanvasCarousel {
-  return buildLayeredTemplateCarousel(templateId, mock as any) as unknown as CanvasCarousel;
+  const carousel = buildLayeredTemplateCarousel(templateId, mock as any) as unknown as CanvasCarousel;
+  return applyPreviewImage(carousel);
 }
 
 export default function ShapePlayground() {

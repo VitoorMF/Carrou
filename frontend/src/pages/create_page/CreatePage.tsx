@@ -136,7 +136,7 @@ export default function CreatePage() {
     return (
         <div className="app_shell">
             <AppSidebar
-                avatarUrl={userData?.avatarUrl ?? null}
+                avatarUrl={userData?.avatarUrl ?? user?.photoURL ?? null}
                 initials={userData?.displayName?.[0]?.toUpperCase() ?? user?.displayName?.[0]?.toUpperCase() ?? "U"}
             />
 

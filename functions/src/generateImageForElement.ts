@@ -15,6 +15,7 @@ const bucket = admin.storage().bucket();
 const corsHandler = cors({ origin: true });
 
 const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
+const STREETWEAR_SHARED_PROMPT_HINT = "consistent framing for carousel diptych";
 
 export const generateImageForElement = onRequest(
     { secrets: [OPENAI_API_KEY], invoker: "public" },
@@ -96,6 +97,71 @@ export const generateImageForElement = onRequest(
                     slide.layers[refData.layerName] = nextElements;
                 }
 
+                function getProjectTemplateId(projectData: any) {
+                    return String(
+                        projectData?.ai?.templateId
+                        ?? projectData?.renderCarousel?.meta?.style
+                        ?? projectData?.meta?.style
+                        ?? ""
+                    ).trim();
+                }
+
+                function findStreetwearSharedPair(slidesList: any[], slideIndex: number, element: any) {
+                    const templateId = getProjectTemplateId(project);
+                    const prompt = String(element?.prompt ?? "").trim().toLowerCase();
+                    const isSharedStreetwearHero = templateId === "streetwearPro"
+                        && slideIndex >= 0
+                        && slideIndex <= 3
+                        && (element?.type === "image" || element?.type === "backgroundImage")
+                        && prompt.includes(STREETWEAR_SHARED_PROMPT_HINT);
+
+                    if (!isSharedStreetwearHero) {
+                        return null;
+                    }
+
+                    const pairSlideIndex = slideIndex % 2 === 0 ? slideIndex + 1 : slideIndex - 1;
+                    const pairSlide = slidesList[pairSlideIndex];
+
+                    if (!pairSlide) {
+                        return null;
+                    }
+
+                    const pairRef = findElementRef(pairSlide, String(element.id).replace(`_${slideIndex}`, `_${pairSlideIndex}`));
+                    if (pairRef) {
+                        const pairEl = pairRef.elements[pairRef.eIndex];
+                        if (
+                            (pairEl?.type === "image" || pairEl?.type === "backgroundImage")
+                            && String(pairEl?.prompt ?? "").trim().toLowerCase().includes(STREETWEAR_SHARED_PROMPT_HINT)
+                        ) {
+                            return { pairSlideIndex, pairRef, pairEl };
+                        }
+                    }
+
+                    const pairCandidates = [
+                        ...(Array.isArray(pairSlide?.canvas?.elements) ? pairSlide.canvas.elements : []),
+                        ...(Array.isArray(pairSlide?.layers?.background) ? pairSlide.layers.background : []),
+                        ...(Array.isArray(pairSlide?.layers?.atmosphere) ? pairSlide.layers.atmosphere : []),
+                        ...(Array.isArray(pairSlide?.layers?.content) ? pairSlide.layers.content : []),
+                        ...(Array.isArray(pairSlide?.layers?.ui) ? pairSlide.layers.ui : []),
+                    ];
+
+                    const fallbackPairEl = pairCandidates.find((candidate: any) =>
+                        (candidate?.type === "image" || candidate?.type === "backgroundImage")
+                        && String(candidate?.prompt ?? "").trim().toLowerCase().includes(STREETWEAR_SHARED_PROMPT_HINT)
+                    );
+
+                    if (!fallbackPairEl?.id) {
+                        return null;
+                    }
+
+                    const fallbackPairRef = findElementRef(pairSlide, fallbackPairEl.id);
+                    if (!fallbackPairRef) {
+                        return null;
+                    }
+
+                    return { pairSlideIndex, pairRef: fallbackPairRef, pairEl: fallbackPairEl };
+                }
+
                 const slide = slides[sIndex];
                 const elRef = findElementRef(slide, elementId);
                 if (!elRef) return res.status(404).json({ ok: false, error: "Element not found" });
@@ -103,6 +169,27 @@ export const generateImageForElement = onRequest(
                 const el = elRef.elements[elRef.eIndex];
                 if (el.type !== "image" && el.type !== "backgroundImage") {
                     return res.status(400).json({ ok: false, error: "Element is not image/backgroundImage" });
+                }
+
+                const sharedPair = findStreetwearSharedPair(slides, sIndex, el);
+
+                if (sharedPair?.pairEl?.url || sharedPair?.pairEl?.src) {
+                    const sharedSrc = String(sharedPair.pairEl.url ?? sharedPair.pairEl.src ?? "");
+
+                    writeElement(slide, elRef, {
+                        ...el,
+                        url: sharedSrc,
+                        src: sharedSrc,
+                        status: "ready",
+                    });
+
+                    await ref.update({
+                        ...(renderCarousel ? { renderCarousel: { ...renderCarousel, slides } } : {}),
+                        slides,
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+
+                    return res.json({ ok: true, src: sharedSrc, cached: true, shared: true });
                 }
 
                 const path = `projects/${projectId}/slides/${slideId}/${elementId}.png`;
@@ -142,6 +229,15 @@ export const generateImageForElement = onRequest(
                             status: "ready",
                         });
 
+                        if (sharedPair) {
+                            writeElement(slides[sharedPair.pairSlideIndex], sharedPair.pairRef, {
+                                ...sharedPair.pairEl,
+                                url: stableSrc,
+                                src: stableSrc,
+                                status: "ready",
+                            });
+                        }
+
                         const nextRenderCarousel = renderCarousel
                             ? { ...renderCarousel, slides }
                             : null;
@@ -163,6 +259,13 @@ export const generateImageForElement = onRequest(
 
                 // marca pending
                 writeElement(slide, elRef, { ...el, status: "pending" });
+
+                if (sharedPair) {
+                    writeElement(slides[sharedPair.pairSlideIndex], sharedPair.pairRef, {
+                        ...sharedPair.pairEl,
+                        status: "pending",
+                    });
+                }
 
                 await ref.update({
                     ...(renderCarousel ? { renderCarousel: { ...renderCarousel, slides } } : {}),
@@ -218,6 +321,22 @@ export const generateImageForElement = onRequest(
                         src,
                         status: "ready",
                     });
+                }
+
+                if (sharedPair) {
+                    const refreshedPairRef = findElementRef(slides[sharedPair.pairSlideIndex], sharedPair.pairEl.id);
+                    const currentPairEl = refreshedPairRef
+                        ? refreshedPairRef.elements[refreshedPairRef.eIndex]
+                        : sharedPair.pairEl;
+
+                    if (refreshedPairRef) {
+                        writeElement(slides[sharedPair.pairSlideIndex], refreshedPairRef, {
+                            ...currentPairEl,
+                            url: src,
+                            src,
+                            status: "ready",
+                        });
+                    }
                 }
 
                 await ref.update({

@@ -76,7 +76,10 @@ export const exportCarouselZip = onRequest(
                     return;
                 }
 
-                const renderCarousel = project?.renderCarousel;
+                const renderCarousel = applyProfileCardIdentityServer(
+                    project?.renderCarousel,
+                    await getUserProfile(uid)
+                );
                 if (!renderCarousel?.slides || !Array.isArray(renderCarousel.slides)) {
                     res.status(400).json({ ok: false, error: "Projeto sem renderCarousel válido." });
                     return;
@@ -447,4 +450,79 @@ function slugifyFileName(value: string) {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
+}
+
+async function getUserProfile(uid: string) {
+    const userSnap = await db.collection("users").doc(uid).get();
+    if (!userSnap.exists) {
+        return null;
+    }
+
+    const data = userSnap.data() as AnyRecord;
+    return {
+        displayName: String(data?.displayName ?? "").trim(),
+        specialization: String(data?.specialization ?? "").trim(),
+        avatarUrl: String(data?.avatarUrl ?? "").trim(),
+    };
+}
+
+function applyProfileCardIdentityServer(carousel: AnyRecord, profile: AnyRecord | null) {
+    if (!carousel || !profile) {
+        return carousel;
+    }
+
+    const name = String(profile.displayName ?? "").trim();
+    const role = String(profile.specialization ?? "").trim();
+    const avatarUrl = String(profile.avatarUrl ?? "").trim();
+
+    if (!name && !role && !avatarUrl) {
+        return carousel;
+    }
+
+    return {
+        ...carousel,
+        slides: Array.isArray(carousel.slides)
+            ? carousel.slides.map((slide: AnyRecord) => ({
+                ...slide,
+                layers: slide?.layers
+                    ? {
+                        background: mapProfileCardLayerServer(slide.layers.background, name, role, avatarUrl),
+                        atmosphere: mapProfileCardLayerServer(slide.layers.atmosphere, name, role, avatarUrl),
+                        content: mapProfileCardLayerServer(slide.layers.content, name, role, avatarUrl),
+                        ui: mapProfileCardLayerServer(slide.layers.ui, name, role, avatarUrl),
+                    }
+                    : slide?.layers,
+                elements: Array.isArray(slide?.elements)
+                    ? mapProfileCardLayerServer(slide.elements, name, role, avatarUrl)
+                    : slide?.elements,
+            }))
+            : carousel.slides,
+    };
+}
+
+function mapProfileCardLayerServer(
+    elements: any[] | undefined,
+    displayName: string,
+    specialization: string,
+    avatarUrl: string
+) {
+    if (!Array.isArray(elements)) {
+        return elements;
+    }
+
+    return elements.map((element) => {
+        if (element?.type !== "profileCard") {
+            return element;
+        }
+
+        return {
+            ...element,
+            user: {
+                ...(element.user ?? {}),
+                name: displayName || element.user?.name || "Username",
+                role: specialization || element.user?.role || "",
+                avatarSrc: avatarUrl || element.user?.avatarSrc || "",
+            },
+        };
+    });
 }
