@@ -2,225 +2,39 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type TouchEvent
 import { onSnapshot, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useParams } from "react-router-dom";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
-import { Canvas, type CanvasRef } from "../../editor/canvas/Canvas";
+import { type CanvasRef } from "../../editor/canvas/Canvas";
 import { type Carousel } from "../../editor/canvas/types";
 import { useAuth } from "../../lib/hooks/useAuth";
 import { applyProfileCardIdentity } from "../../lib/applyProfileCardIdentity";
 import { router } from "../../router";
 import { auth, db, storage } from "../../services/firebase";
-import { findTemplateById, type TemplateId } from "../../templates/templateCatalog";
+import { findTemplateById } from "../../templates/templateCatalog";
 import type { UserData } from "../../types/userData";
+import {
+    DOC_H,
+    DOC_W,
+    EXPORT_ZIP_ENDPOINT,
+    GENERATE_IMAGE_ENDPOINT,
+    MAX_ZOOM,
+    MIN_ZOOM,
+    STAGE_PADDING,
+    TEMPLATE_PALETTE_PRESETS,
+    ZOOM_STEP,
+} from "./constants";
+import { CanvasArea } from "./components/CanvasArea";
+import { EditHeader } from "./components/EditHeader";
+import { LeftBar } from "./components/LeftBar";
+import { RightBar } from "./components/RightBar";
+import type {
+    EditableElementType,
+    EditorElement,
+    EditorPalette,
+    EditorSlide,
+    InspectorElementEntry,
+    MobilePanel,
+    PaletteKey,
+} from "./types";
 import "./EditPage.css";
-
-type EditorElement = {
-    id: string;
-    type: string;
-    x?: number;
-    y?: number;
-    prompt?: string;
-    src?: string;
-    status?: string;
-    [key: string]: unknown;
-};
-
-type EditorSlide = {
-    id: string;
-    name: string;
-    elements: EditorElement[];
-    background?: { type: "solid"; value: string };
-};
-
-type InspectorElementEntry = {
-    id: string;
-    type: string;
-    name?: string;
-    layer: "background" | "atmosphere" | "content" | "ui" | "flat";
-};
-
-type EditableElementType = "text" | "image" | "backgroundImage";
-type MobilePanel = "slides" | "inspector" | null;
-type PaletteKey = "bg" | "text" | "muted" | "accent" | "accent2";
-type EditorPalette = {
-    bg: string;
-    text: string;
-    muted: string;
-    accent: string;
-    accent2: string;
-};
-type PalettePreset = {
-    id: string;
-    label: string;
-    description: string;
-    palette: EditorPalette;
-};
-
-const MIN_ZOOM = 0.1;
-const MAX_ZOOM = 0.9;
-const ZOOM_STEP = 0.05;
-const DOC_W = 1080;
-const DOC_H = 1350;
-const STAGE_PADDING = 40;
-const TEMPLATE_PALETTE_PRESETS: Record<TemplateId, PalettePreset[]> = {
-    microBlogBold: [
-        {
-            id: "microblog-paper",
-            label: "Paper",
-            description: "Claro e editorial",
-            palette: {
-                bg: "#F5F5F0",
-                text: "#0A0A0A",
-                muted: "#555555",
-                accent: "#2563EB",
-                accent2: "#DC2626",
-            },
-        },
-        {
-            id: "microblog-night",
-            label: "Night",
-            description: "Escuro e direto",
-            palette: {
-                bg: "#0F172A",
-                text: "#F8FAFC",
-                muted: "#94A3B8",
-                accent: "#38BDF8",
-                accent2: "#F97316",
-            },
-        },
-        {
-            id: "microblog-ink",
-            label: "Ink",
-            description: "Mais sóbrio e jornal",
-            palette: {
-                bg: "#F8FAFC",
-                text: "#111827",
-                muted: "#6B7280",
-                accent: "#1D4ED8",
-                accent2: "#0F766E",
-            },
-        },
-    ],
-    editorial3D: [
-        {
-            id: "editorial-aqua",
-            label: "Aqua",
-            description: "Frio e tridimensional",
-            palette: {
-                bg: "#EFF8F8",
-                text: "#393939",
-                muted: "#646464",
-                accent: "#006884",
-                accent2: "#375F65",
-            },
-        },
-        {
-            id: "editorial-lilac",
-            label: "Lilac",
-            description: "Mais experimental",
-            palette: {
-                bg: "#F4F2FF",
-                text: "#221B3A",
-                muted: "#7A7396",
-                accent: "#6D5EF8",
-                accent2: "#EC4899",
-            },
-        },
-        {
-            id: "editorial-sand",
-            label: "Sand",
-            description: "Macio e premium",
-            palette: {
-                bg: "#FAF4EC",
-                text: "#3B2F2F",
-                muted: "#8A7469",
-                accent: "#C08457",
-                accent2: "#6B7280",
-            },
-        },
-    ],
-    luxuryMinimal: [
-        {
-            id: "luxury-gold",
-            label: "Gold",
-            description: "Clássico premium",
-            palette: {
-                bg: "#F0EBE1",
-                text: "#1A1208",
-                muted: "#7A6A55",
-                accent: "#C2922A",
-                accent2: "#8B4513",
-            },
-        },
-        {
-            id: "luxury-noir",
-            label: "Noir",
-            description: "Luxo mais escuro",
-            palette: {
-                bg: "#161616",
-                text: "#F6F1E8",
-                muted: "#B8AFA0",
-                accent: "#D4A64A",
-                accent2: "#8B5E3C",
-            },
-        },
-        {
-            id: "luxury-rose",
-            label: "Rose",
-            description: "Suave e sofisticado",
-            palette: {
-                bg: "#F8F2EF",
-                text: "#2B1D1A",
-                muted: "#8E746A",
-                accent: "#C87B6A",
-                accent2: "#9A5B4F",
-            },
-        },
-    ],
-    streetwearPro: [
-        {
-            id: "streetwear-fire",
-            label: "Fire",
-            description: "Contraste alto e energia",
-            palette: {
-                bg: "#0D0D0D",
-                text: "#FFFFFF",
-                muted: "#A3A3A3",
-                accent: "#FF5500",
-                accent2: "#FFD600",
-            },
-        },
-        {
-            id: "streetwear-neon",
-            label: "Neon",
-            description: "Mais urbano e vibrante",
-            palette: {
-                bg: "#050816",
-                text: "#F8FAFC",
-                muted: "#94A3B8",
-                accent: "#22D3EE",
-                accent2: "#F43F5E",
-            },
-        },
-        {
-            id: "streetwear-lime",
-            label: "Lime",
-            description: "Agressivo e moderno",
-            palette: {
-                bg: "#101010",
-                text: "#F5F5F5",
-                muted: "#B3B3B3",
-                accent: "#A3E635",
-                accent2: "#F97316",
-            },
-        },
-    ],
-};
-const USE_FIREBASE_EMULATORS = import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true";
-const GENERATE_IMAGE_ENDPOINT = USE_FIREBASE_EMULATORS
-    ? "http://127.0.0.1:5001/carrosselize/us-central1/generateImageForElement"
-    : "https://us-central1-carrosselize.cloudfunctions.net/generateImageForElement";
-const EXPORT_ZIP_ENDPOINT = USE_FIREBASE_EMULATORS
-    ? "http://127.0.0.1:5001/carrosselize/southamerica-east1/exportCarouselZip"
-    : "https://southamerica-east1-carrosselize.cloudfunctions.net/exportCarouselZip";
 
 export default function EditPage() {
     const { projectId } = useParams();
@@ -246,6 +60,7 @@ export default function EditPage() {
     const [mobilePanel, setMobilePanel] = useState<MobilePanel>(null);
     const [liveElementPosition, setLiveElementPosition] = useState<{ id: string; x: number; y: number } | null>(null);
     const [isAdvancedPaletteOpen, setIsAdvancedPaletteOpen] = useState(false);
+    const [selectedPalettePresetId, setSelectedPalettePresetId] = useState<string | null>(null);
     const [isLoadingProject, setIsLoadingProject] = useState(true);
     const [isGeneratingImages, setIsGeneratingImages] = useState(false);
     const [isExportingAllSlides, setIsExportingAllSlides] = useState(false);
@@ -332,13 +147,29 @@ export default function EditPage() {
     );
     const activePalettePresetId = useMemo(
         () => {
+            if (selectedPalettePresetId === "original" && originalPalette && palettesEqual(originalPalette, activePalette)) {
+                return "original";
+            }
+
+            if (selectedPalettePresetId) {
+                const selectedPreset = palettePresets.find((preset) => preset.id === selectedPalettePresetId);
+                if (selectedPreset && palettesEqual(selectedPreset.palette, activePalette)) {
+                    return selectedPreset.id;
+                }
+            }
+
+            const matchingPresetId = palettePresets.find((preset) => palettesEqual(preset.palette, activePalette))?.id ?? null;
+            if (matchingPresetId) {
+                return matchingPresetId;
+            }
+
             if (originalPalette && palettesEqual(originalPalette, activePalette)) {
                 return "original";
             }
 
-            return palettePresets.find((preset) => palettesEqual(preset.palette, activePalette))?.id ?? null;
+            return null;
         },
-        [activePalette, originalPalette, palettePresets]
+        [activePalette, originalPalette, palettePresets, selectedPalettePresetId]
     );
     const editableSelectedElement = useMemo(
         () => (
@@ -349,7 +180,6 @@ export default function EditPage() {
         [selectedEditableElement]
     );
     const isInspectorEditingElement = Boolean(editableSelectedElement);
-    const selectedElementKindLabel = editableSelectedElement?.type === "text" ? "Texto" : "Imagem";
 
     useEffect(() => {
         if (!projectId) {
@@ -879,6 +709,7 @@ export default function EditPage() {
     }
 
     function handlePaletteChange(key: PaletteKey, value: string) {
+        setSelectedPalettePresetId(null);
         setServerCarousel((current) => {
             if (!current) {
                 return current;
@@ -896,7 +727,8 @@ export default function EditPage() {
         });
     }
 
-    function applyPalettePreset(palette: EditorPalette) {
+    function applyPalettePreset(palette: EditorPalette, presetId: string) {
+        setSelectedPalettePresetId(presetId);
         setIsAdvancedPaletteOpen(false);
         setServerCarousel((current) => {
             if (!current) {
@@ -912,376 +744,83 @@ export default function EditPage() {
 
     return (
         <div className="editor_screen">
-            <header className="editor_topbar">
-                <div className="topbar_group">
-                    <button className="back_button" onClick={() => router.navigate("/")} type="button">
-                        ← Voltar
-                    </button>
-                    <input
-                        className="project_title"
-                        type="text"
-                        value={projectName}
-                        onChange={(event) => setProjectName(event.target.value)}
-                    />
-                </div>
-
-                <div className="topbar_group topbar_center">
-                    <div className="topbar_zoom_cluster">
-                        <button className="chip_button" type="button" onClick={zoomOut}>
-                            -
-                        </button>
-                        <button className="chip_button chip_button_value" type="button" onClick={resetZoom}>
-                            {Math.round(zoom * 100)}%
-                        </button>
-                        <button className="chip_button" type="button" onClick={zoomIn}>
-                            +
-                        </button>
-                    </div>
-                </div>
-
-                <div className="topbar_group topbar_right">
-                    <button
-                        className="secondary_button"
-                        type="button"
-                        onClick={exportAllSlides}
-                        disabled={isExportingAllSlides || !serverCarousel}
-                    >
-                        {isExportingAllSlides ? "Baixando..." : "Baixar todos"}
-                    </button>
-                    <button className="primary_button" type="button" onClick={exportActiveSlide}>
-                        Exportar PNG
-                    </button>
-                </div>
-            </header>
+            <EditHeader
+                projectName={projectName}
+                zoom={zoom}
+                isExportingAllSlides={isExportingAllSlides}
+                hasServerCarousel={Boolean(serverCarousel)}
+                onBack={() => router.navigate("/")}
+                onProjectNameChange={setProjectName}
+                onZoomOut={zoomOut}
+                onResetZoom={resetZoom}
+                onZoomIn={zoomIn}
+                onExportAllSlides={exportAllSlides}
+                onExportActiveSlide={exportActiveSlide}
+            />
 
             <div className="editor_workspace">
-                <aside className={`panel panel_left ${mobilePanel === "slides" ? "is_mobile_open" : ""}`}>
-                    <div className="panel_title_row">
-                        <h3>Páginas</h3>
-                        <span>{slides.length}</span>
-                    </div>
+                <LeftBar
+                    mobilePanel={mobilePanel}
+                    slides={slides}
+                    activeSlideId={activeSlideId}
+                    getSlideLabel={getSlideListLabel}
+                    onSelectSlide={goToSlide}
+                    onCloseMobilePanel={() => setMobilePanel(null)}
+                />
 
-                    <div className="slides_list">
-                        {slides.map((slide, index) => (
-                            <button
-                                key={slide.id}
-                                className={`slide_item ${slide.id === activeSlideId ? "active" : ""}`}
-                                onClick={() => {
-                                    goToSlide(index);
-                                    setMobilePanel(null);
-                                }}
-                                type="button"
-                            >
-                                <span className="slide_index">{index + 1}</span>
-                                <span className="slide_text">{getSlideListLabel(slide, index)}</span>
-                            </button>
-                        ))}
-                    </div>
+                <CanvasArea
+                    slidesCount={slides.length}
+                    activeSlideIndex={activeSlideIndex}
+                    isLoadingProject={isLoadingProject}
+                    statusMessage={statusMessage}
+                    errorMessage={errorMessage}
+                    stageContainerRef={stageContainerRef}
+                    canvasRef={canvasRef}
+                    renderedCarousel={renderedCarousel}
+                    zoom={zoom}
+                    selectedElementId={selectedElementId}
+                    onTouchStart={handleStageTouchStart}
+                    onTouchMove={handleStageTouchMove}
+                    onTouchEnd={handleStageTouchEnd}
+                    onSelectElement={(elementId) => {
+                        setSelectedElementId(elementId);
+                        setLiveElementPosition(null);
+                    }}
+                    onElementLivePositionChange={handleElementLivePositionChange}
+                    onElementPositionChange={handleElementPositionChange}
+                    onExportPNG={() => {
+                        setStatusMessage(`Slide ${activeSlideIndex + 1} exportado em PNG.`);
+                    }}
+                />
 
-                </aside>
-
-                <main className="stage_section">
-
-                    <div>
-                        <div className="stage_status_bar">
-                            <div>
-                                Slide {activeSlideIndex + 1} de {slides.length}
-                            </div>
-                            <div className="status_inline">
-                                {isLoadingProject && <span>Carregando projeto...</span>}
-                                {!isLoadingProject && statusMessage && <span>{statusMessage}</span>}
-                                {errorMessage && <span className="status_error">{errorMessage}</span>}
-                            </div>
-                        </div>
-                        <div className="mobile_swipe_hint">Deslize com um dedo para trocar de slide. Use dois dedos para zoom.</div>
-                    </div>
-                    <div
-                        className="stage_container"
-                        ref={stageContainerRef}
-                        onTouchStart={handleStageTouchStart}
-                        onTouchMove={handleStageTouchMove}
-                        onTouchEnd={handleStageTouchEnd}
-                    >
-                        <Canvas
-                            ref={canvasRef}
-                            carousel={renderedCarousel}
-                            slideIndex={activeSlideIndex}
-                            zoom={zoom}
-                            selectedElementId={selectedElementId}
-                            onSelectElement={(elementId) => {
-                                setSelectedElementId(elementId);
-                                setLiveElementPosition(null);
-                            }}
-                            onElementLivePositionChange={handleElementLivePositionChange}
-                            onElementPositionChange={handleElementPositionChange}
-                            onExportPNG={() => {
-                                setStatusMessage(`Slide ${activeSlideIndex + 1} exportado em PNG.`);
-                            }}
-                        />
-                    </div>
-                </main>
-
-                <aside className={`panel panel_right ${mobilePanel === "inspector" ? "is_mobile_open" : ""}`}>
-                    {editableSelectedElement ? (
-                        <div className="inspector_card">
-                            <label>Ajustes</label>
-                            <div className="editor_fields">
-                                {/* <div className="inspector_mobile_summary">
-                                    <span className="inspector_mobile_kind">{selectedElementKindLabel}</span>
-                                    <strong>{getInspectorElementPreview(
-                                        activeInspectorElements.find((element) => element.id === editableSelectedElement.id)
-                                        ?? {
-                                            id: editableSelectedElement.id,
-                                            type: editableSelectedElement.type,
-                                            name: selectedElementKindLabel,
-                                            layer: "content",
-                                        },
-                                        activeSlide
-                                    )}</strong>
-                                    <p>Toque no canvas para selecionar outro elemento ou ajuste por aqui.</p>
-                                </div> */}
-
-                                {editableSelectedElement.type === "text" && (
-                                    <>
-                                        <span className="field_caption">Texto</span>
-                                        <textarea
-                                            className="editor_textarea"
-                                            value={String(editableSelectedElement.content ?? "")}
-                                            onChange={(event) => handleTextContentChange(event.target.value)}
-                                        />
-                                    </>
-                                )}
-
-                                {(editableSelectedElement.type === "image"
-                                    || editableSelectedElement.type === "backgroundImage") && (
-                                        <div className="image_actions_block">
-                                            <span className="field_caption">Imagem</span>
-                                            <div className="image_actions_row">
-                                                <button
-                                                    type="button"
-                                                    className="secondary_button image_action_button"
-                                                    onClick={generateSelectedImage}
-                                                    disabled={isGeneratingImages}
-                                                >
-                                                    <span className="image_action_icon" aria-hidden="true">
-                                                        <svg viewBox="0 0 24 24" fill="currentColor">
-                                                            <path d="m18 9.064a3.049 3.049 0 0 0 -.9-2.164 3.139 3.139 0 0 0 -4.334 0l-11.866 11.869a3.064 3.064 0 0 0 4.33 4.331l11.87-11.869a3.047 3.047 0 0 0 .9-2.167zm-14.184 12.624a1.087 1.087 0 0 1 -1.5 0 1.062 1.062 0 0 1 0-1.5l7.769-7.77 1.505 1.505zm11.872-11.872-2.688 2.689-1.5-1.505 2.689-2.688a1.063 1.063 0 1 1 1.5 1.5zm-10.825-6.961 1.55-.442.442-1.55a1.191 1.191 0 0 1 2.29 0l.442 1.55 1.55.442a1.191 1.191 0 0 1 0 2.29l-1.55.442-.442 1.55a1.191 1.191 0 0 1 -2.29 0l-.442-1.55-1.55-.442a1.191 1.191 0 0 1 0-2.29zm18.274 14.29-1.55.442-.442 1.55a1.191 1.191 0 0 1 -2.29 0l-.442-1.55-1.55-.442a1.191 1.191 0 0 1 0-2.29l1.55-.442.442-1.55a1.191 1.191 0 0 1 2.29 0l.442 1.55 1.55.442a1.191 1.191 0 0 1 0 2.29zm-5.382-14.645 1.356-.387.389-1.358a1.042 1.042 0 0 1 2 0l.387 1.356 1.356.387a1.042 1.042 0 0 1 0 2l-1.356.387-.387 1.359a1.042 1.042 0 0 1 -2 0l-.387-1.355-1.358-.389a1.042 1.042 0 0 1 0-2z" />
-                                                        </svg>
-                                                    </span>
-                                                    <span>{isGeneratingImages ? "Gerando..." : "Gerar com IA"}</span>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="secondary_button image_action_button"
-                                                    onClick={openImagePicker}
-                                                >
-                                                    <span className="image_action_icon" aria-hidden="true">
-                                                        <svg viewBox="0 0 24 24" fill="currentColor">
-                                                            <path d="M19,3H12.472a1.019,1.019,0,0,1-.447-.1L8.869,1.316A3.014,3.014,0,0,0,7.528,1H5A5.006,5.006,0,0,0,0,6V18a5.006,5.006,0,0,0,5,5H19a5.006,5.006,0,0,0,5-5V8A5.006,5.006,0,0,0,19,3ZM5,3H7.528a1.019,1.019,0,0,1,.447.1l3.156,1.579A3.014,3.014,0,0,0,12.472,5H19a3,3,0,0,1,2.779,1.882L2,6.994V6A3,3,0,0,1,5,3ZM19,21H5a3,3,0,0,1-3-3V8.994l20-.113V18A3,3,0,0,1,19,21Z" />
-                                                        </svg>
-                                                    </span>
-                                                    <span>Galeria</span>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="secondary_button image_action_button"
-                                                    onClick={() => void removeSelectedImage()}
-                                                    disabled={!editableSelectedElement.src}
-                                                >
-                                                    <span className="image_action_icon" aria-hidden="true">
-                                                        <svg viewBox="0 0 24 24" fill="#d92d20">
-                                                            <path d="M21,4H17.9A5.009,5.009,0,0,0,13,0H11A5.009,5.009,0,0,0,6.1,4H3A1,1,0,0,0,3,6H4V19a5.006,5.006,0,0,0,5,5h6a5.006,5.006,0,0,0,5-5V6h1a1,1,0,0,0,0-2ZM11,2h2a3.006,3.006,0,0,1,2.829,2H8.171A3.006,3.006,0,0,1,11,2Zm7,17a3,3,0,0,1-3,3H9a3,3,0,0,1-3-3V6H18Z" />
-                                                            <path d="M10,18a1,1,0,0,0,1-1V11a1,1,0,0,0-2,0v6A1,1,0,0,0,10,18Z" />
-                                                            <path d="M14,18a1,1,0,0,0,1-1V11a1,1,0,0,0-2,0v6A1,1,0,0,0,14,18Z" />
-                                                        </svg>
-                                                    </span>
-                                                    <span className="del_icn">Remover</span>
-                                                </button>
-                                            </div>
-                                            {typeof editableSelectedElement.prompt === "string"
-                                                && editableSelectedElement.prompt.trim().length > 0 ? (
-                                                <p className="image_prompt_hint">{editableSelectedElement.prompt}</p>
-                                            ) : null}
-                                        </div>
-                                    )}
-
-                                <div className="editor_grid editor_grid_coordinates">
-                                    <label className="editor_field">
-                                        <span>X</span>
-                                        <input
-                                            type="number"
-                                            value={Math.round(Number(selectedElementPosition?.x ?? 0))}
-                                            onChange={(event) => handleElementCoordinateChange("x", event.target.value)}
-                                        />
-                                    </label>
-
-                                    <label className="editor_field">
-                                        <span>Y</span>
-                                        <input
-                                            type="number"
-                                            value={Math.round(Number(selectedElementPosition?.y ?? 0))}
-                                            onChange={(event) => handleElementCoordinateChange("y", event.target.value)}
-                                        />
-                                    </label>
-                                </div>
-                                <p className="mobile_coordinates_hint">Posição fina disponível no desktop.</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="inspector_card">
-                            <label>Paleta global</label>
-                            <div className="editor_fields">
-                                <div className="palette_preset_grid">
-                                    <button
-                                        type="button"
-                                        className={`palette_preset_card ${activePalettePresetId === "original" ? "is_active" : ""}`}
-                                        onClick={() => applyPalettePreset(originalPalette ?? activePalette)}
-                                    >
-                                        <span className="palette_preset_title">Original</span>
-                                        <span className="palette_preset_description">Como veio do template</span>
-                                        <span className="palette_preset_swatches">
-                                            {renderPaletteSwatches(originalPalette ?? activePalette)}
-                                        </span>
-                                    </button>
-
-                                    {palettePresets.map((preset) => (
-                                        <button
-                                            key={preset.id}
-                                            type="button"
-                                            className={`palette_preset_card ${activePalettePresetId === preset.id ? "is_active" : ""}`}
-                                            onClick={() => applyPalettePreset(preset.palette)}
-                                        >
-                                            <span className="palette_preset_title">{preset.label}</span>
-                                            <span className="palette_preset_description">{preset.description}</span>
-                                            <span className="palette_preset_swatches">
-                                                {renderPaletteSwatches(preset.palette)}
-                                            </span>
-                                        </button>
-                                    ))}
-                                </div>
-
-                                <button
-                                    type="button"
-                                    className="advanced_palette_toggle"
-                                    onClick={() => setIsAdvancedPaletteOpen((current) => !current)}
-                                >
-                                    {isAdvancedPaletteOpen ? "Fechar personalização" : "Personalizar cores"}
-                                </button>
-
-                                {isAdvancedPaletteOpen ? (
-                                    <div className="palette_grid">
-                                        <label className="editor_field">
-                                            <span>Background</span>
-                                            <div className="palette_input_row">
-                                                <input
-                                                    className="palette_swatch"
-                                                    type="color"
-                                                    value={activePalette.bg}
-                                                    onChange={(event) => handlePaletteChange("bg", event.target.value)}
-                                                />
-                                                <input
-                                                    type="text"
-                                                    value={activePalette.bg}
-                                                    onChange={(event) => handlePaletteChange("bg", event.target.value)}
-                                                />
-                                            </div>
-                                        </label>
-
-                                        <label className="editor_field">
-                                            <span>Text</span>
-                                            <div className="palette_input_row">
-                                                <input
-                                                    className="palette_swatch"
-                                                    type="color"
-                                                    value={activePalette.text}
-                                                    onChange={(event) => handlePaletteChange("text", event.target.value)}
-                                                />
-                                                <input
-                                                    type="text"
-                                                    value={activePalette.text}
-                                                    onChange={(event) => handlePaletteChange("text", event.target.value)}
-                                                />
-                                            </div>
-                                        </label>
-
-                                        <label className="editor_field">
-                                            <span>Muted</span>
-                                            <div className="palette_input_row">
-                                                <input
-                                                    className="palette_swatch"
-                                                    type="color"
-                                                    value={activePalette.muted}
-                                                    onChange={(event) => handlePaletteChange("muted", event.target.value)}
-                                                />
-                                                <input
-                                                    type="text"
-                                                    value={activePalette.muted}
-                                                    onChange={(event) => handlePaletteChange("muted", event.target.value)}
-                                                />
-                                            </div>
-                                        </label>
-
-                                        <label className="editor_field">
-                                            <span>Accent</span>
-                                            <div className="palette_input_row">
-                                                <input
-                                                    className="palette_swatch"
-                                                    type="color"
-                                                    value={activePalette.accent}
-                                                    onChange={(event) => handlePaletteChange("accent", event.target.value)}
-                                                />
-                                                <input
-                                                    type="text"
-                                                    value={activePalette.accent}
-                                                    onChange={(event) => handlePaletteChange("accent", event.target.value)}
-                                                />
-                                            </div>
-                                        </label>
-
-                                        <label className="editor_field">
-                                            <span>Accent 2</span>
-                                            <div className="palette_input_row">
-                                                <input
-                                                    className="palette_swatch"
-                                                    type="color"
-                                                    value={activePalette.accent2}
-                                                    onChange={(event) => handlePaletteChange("accent2", event.target.value)}
-                                                />
-                                                <input
-                                                    type="text"
-                                                    value={activePalette.accent2}
-                                                    onChange={(event) => handlePaletteChange("accent2", event.target.value)}
-                                                />
-                                            </div>
-                                        </label>
-                                    </div>
-                                ) : null}
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="elements_list">
-                        {activeInspectorElements.slice(0, 10).map((element) => (
-                            <button
-                                className={`element_row ${selectedElementId === element.id ? "active" : ""}`}
-                                key={element.id}
-                                onClick={() => {
-                                    setSelectedElementId(element.id);
-                                    setLiveElementPosition(null);
-                                }}
-                                type="button"
-                            >
-                                <span className="element_row_icon" aria-hidden="true">
-                                    {renderInspectorElementIcon(element.type)}
-                                </span>
-                                <span className="element_row_label">{getInspectorElementPreview(element, activeSlide)}</span>
-                            </button>
-                        ))}
-                        {activeInspectorElements.length > 10 && (
-                            <div className="elements_more">+ {activeInspectorElements.length - 10} elementos</div>
-                        )}
-                    </div>
-                </aside>
+                <RightBar
+                    mobilePanel={mobilePanel}
+                    editableSelectedElement={editableSelectedElement}
+                    selectedElementPosition={selectedElementPosition}
+                    isGeneratingImages={isGeneratingImages}
+                    activePalette={activePalette}
+                    originalPalette={originalPalette}
+                    palettePresets={palettePresets}
+                    activePalettePresetId={activePalettePresetId}
+                    isAdvancedPaletteOpen={isAdvancedPaletteOpen}
+                    activeInspectorElements={activeInspectorElements}
+                    selectedElementId={selectedElementId}
+                    activeSlide={activeSlide}
+                    onTextContentChange={handleTextContentChange}
+                    onGenerateSelectedImage={generateSelectedImage}
+                    onOpenImagePicker={openImagePicker}
+                    onRemoveSelectedImage={removeSelectedImage}
+                    onElementCoordinateChange={handleElementCoordinateChange}
+                    onApplyPalettePreset={applyPalettePreset}
+                    onToggleAdvancedPalette={() => setIsAdvancedPaletteOpen((current) => !current)}
+                    onPaletteChange={handlePaletteChange}
+                    onSelectInspectorElement={(elementId) => {
+                        setSelectedElementId(elementId);
+                        setLiveElementPosition(null);
+                    }}
+                    getInspectorElementPreview={getInspectorElementPreview}
+                    renderInspectorElementIcon={renderInspectorElementIcon}
+                />
             </div>
             <div
                 className={`mobile_panel_backdrop ${mobilePanel ? "is_visible" : ""}`}
@@ -1818,22 +1357,6 @@ function palettesEqual(left: EditorPalette, right: EditorPalette) {
         && left.accent2.toLowerCase() === right.accent2.toLowerCase();
 }
 
-function renderPaletteSwatches(palette: EditorPalette) {
-    return [
-        palette.bg,
-        palette.text,
-        palette.muted,
-        palette.accent,
-        palette.accent2,
-    ].map((color, index) => (
-        <span
-            key={`${color}-${index}`}
-            className="palette_preset_swatch"
-            style={{ background: color }}
-        />
-    ));
-}
-
 function recolorCarouselPalette(
     carousel: Carousel,
     previousPalette: EditorPalette,
@@ -1993,7 +1516,38 @@ function replacePaletteColor(
         return nextColor;
     }
 
+    const legacyPaletteKey = getLegacyPaletteKey(input);
+    if (legacyPaletteKey) {
+        const nextColor = nextPalette[legacyPaletteKey];
+        if (inputColor.alpha !== null && inputColor.alpha < 1) {
+            return withPreservedAlpha(nextColor, inputColor.alpha);
+        }
+
+        return nextColor;
+    }
+
     return input;
+}
+
+function getLegacyPaletteKey(input: string): PaletteKey | null {
+    const normalized = input.trim().toLowerCase();
+
+    const legacyMap: Record<string, PaletteKey> = {
+        "#6b5548": "bg",
+        "#111111": "bg",
+        "#9a7c60": "accent2",
+        "#f5f1ec": "text",
+        "#f3ece6": "text",
+        "#f1e8de": "text",
+        "#ffffff": "text",
+        "#eeeae5": "muted",
+        "#f4ece4": "muted",
+        "#f5ece2": "text",
+        "#f6efe8": "text",
+        "#a8896b": "accent",
+    };
+
+    return legacyMap[normalized] ?? null;
 }
 
 function parseColorToken(value: string) {

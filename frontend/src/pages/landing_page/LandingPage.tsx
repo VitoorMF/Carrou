@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import "./LandingPage.css";
 
 import logo from "../../assets/page/landing/logo.svg";
@@ -99,7 +99,6 @@ function HeroTitle() {
 
 export function LandingPage() {
     const navigate = useNavigate();
-    const location = useLocation();
 
     const [isNavOpen, setIsNavOpen] = useState(false);
     const [isAuthOpen, setIsAuthOpen] = useState(false);

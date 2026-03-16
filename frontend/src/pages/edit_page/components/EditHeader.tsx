@@ -1,0 +1,71 @@
+type EditHeaderProps = {
+    projectName: string;
+    zoom: number;
+    isExportingAllSlides: boolean;
+    hasServerCarousel: boolean;
+    onBack: () => void;
+    onProjectNameChange: (value: string) => void;
+    onZoomOut: () => void;
+    onResetZoom: () => void;
+    onZoomIn: () => void;
+    onExportAllSlides: () => void;
+    onExportActiveSlide: () => void;
+};
+
+export function EditHeader({
+    projectName,
+    zoom,
+    isExportingAllSlides,
+    hasServerCarousel,
+    onBack,
+    onProjectNameChange,
+    onZoomOut,
+    onResetZoom,
+    onZoomIn,
+    onExportAllSlides,
+    onExportActiveSlide,
+}: EditHeaderProps) {
+    return (
+        <header className="editor_topbar">
+            <div className="topbar_group">
+                <button className="back_button" onClick={onBack} type="button">
+                    ← Voltar
+                </button>
+                <input
+                    className="project_title"
+                    type="text"
+                    value={projectName}
+                    onChange={(event) => onProjectNameChange(event.target.value)}
+                />
+            </div>
+
+            <div className="topbar_group topbar_center">
+                <div className="topbar_zoom_cluster">
+                    <button className="chip_button" type="button" onClick={onZoomOut}>
+                        -
+                    </button>
+                    <button className="chip_button chip_button_value" type="button" onClick={onResetZoom}>
+                        {Math.round(zoom * 100)}%
+                    </button>
+                    <button className="chip_button" type="button" onClick={onZoomIn}>
+                        +
+                    </button>
+                </div>
+            </div>
+
+            <div className="topbar_group topbar_right">
+                <button
+                    className="secondary_button"
+                    type="button"
+                    onClick={onExportAllSlides}
+                    disabled={isExportingAllSlides || !hasServerCarousel}
+                >
+                    {isExportingAllSlides ? "Baixando..." : "Baixar todos"}
+                </button>
+                <button className="primary_button" type="button" onClick={onExportActiveSlide}>
+                    Exportar PNG
+                </button>
+            </div>
+        </header>
+    );
+}

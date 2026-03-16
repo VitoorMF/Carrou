@@ -287,7 +287,7 @@
 
 .project_preview_canvas {
     position: absolute;
-    inset: 0;
+    top: 0;
     display: grid;
     place-items: center;
     pointer-events: none;
@@ -298,7 +298,7 @@
     height: auto;
     padding: 0;
     display: block;
-    transform: scale(0.82);
+    transform: translateY(10px) scale(0.82);
     transform-origin: center;
 }
 

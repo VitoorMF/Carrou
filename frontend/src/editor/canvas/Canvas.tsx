@@ -768,17 +768,6 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(
                                 )
                             ))}
 
-                            {/* Borda de safe area (guia visual) */}
-                            <Rect
-                                x={40}
-                                y={40}
-                                width={DOC_W - 80}
-                                height={DOC_H - 80}
-                                stroke="rgba(255,255,255,0.06)"
-                                dash={[10, 8]}
-                                strokeWidth={1.5}
-                                listening={false}
-                            />
                         </Layer>
                     </Stage>
                 </div>

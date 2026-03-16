@@ -24,12 +24,14 @@ function buildEditorialPrompt(heading: string) {
 }
 
 export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): CarouselElement[] {
-    const { slideIndex, role, copy } = params;
+    const { slideIndex, role, copy, palette } = params;
     const imageLayout = slideIndex % 2 === 0;
 
-    const warmDark = "#6B5548";
-    const warmMid = "#A8896B";
-    const warmLight = "#EEEAE5";
+    const surface = palette.bg;
+    const textPrimary = palette.text;
+    const textMuted = palette.muted;
+    const accent = palette.accent;
+    const accent2 = palette.accent2;
     const heading = truncateText(copy.heading || "Você pensa no que vai dizer", imageLayout ? 74 : 80);
     const support = truncateText(
         copy.support || "Design não é só estética. É sobre comunicar com clareza, intenção e consistência visual.",
@@ -45,7 +47,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
             y: 0,
             width: DOC_W,
             height: DOC_H,
-            fill: imageLayout ? "#111111" : role === "cta" ? "#9A7C60" : warmDark,
+            fill: imageLayout ? surface : role === "cta" ? accent2 : surface,
             opacity: 1,
         },
     ];
@@ -107,7 +109,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
                 x: 84,
                 y: role === "hook" ? 770 : 630,
                 text: heading,
-                fill: "#F5F1EC",
+                fill: textPrimary,
                 fontSize: role === "hook" ? 52 : 48,
                 fontFamily: "Montserrat",
                 fontStyle: "normal",
@@ -123,7 +125,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
                 x: 84,
                 y: role === "hook" ? 1010 : 860,
                 text: support,
-                fill: withAlpha("#FFFFFF", 0.9),
+                fill: withAlpha(textPrimary, 0.9),
                 fontSize: 29,
                 fontFamily: "Manrope",
                 fontStyle: "normal",
@@ -142,7 +144,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
                 x: 250,
                 y: role === "cta" ? 300 : 340,
                 text: heading,
-                fill: role === "cta" ? "#F3ECE6" : "#F1E8DE",
+                fill: textPrimary,
                 fontSize: role === "cta" ? 64 : 60,
                 fontFamily: "Montserrat",
                 fontStyle: "normal",
@@ -158,7 +160,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
                 x: 270,
                 y: role === "cta" ? 700 : 760,
                 text: support,
-                fill: withAlpha("#F4ECE4", 0.86),
+                fill: withAlpha(textMuted, 0.86),
                 fontSize: 30,
                 fontFamily: "Manrope",
                 fontStyle: "normal",
@@ -180,7 +182,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
             text: imageLayout
                 ? truncateText(extra, 62)
                 : `✓ ${truncateText(extra, 52)}`,
-            fill: imageLayout ? withAlpha("#FFFFFF", 0.84) : withAlpha("#F5ECE2", 0.92),
+            fill: imageLayout ? withAlpha(textPrimary, 0.84) : withAlpha(textPrimary, 0.92),
             fontSize: imageLayout ? 24 : 26,
             fontFamily: "Manrope",
             fontStyle: "normal",
@@ -199,7 +201,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
             x: 84,
             y: 1288,
             text: signature,
-            fill: imageLayout ? withAlpha("#FFFFFF", 0.6) : withAlpha(warmLight, 0.72),
+            fill: imageLayout ? withAlpha(textPrimary, 0.6) : withAlpha(textMuted, 0.72),
             fontSize: 11,
             fontFamily: "Sora",
             fontStyle: "normal",
@@ -215,7 +217,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
             x: 84,
             y: 78,
             text: role === "hook" ? "ABERTURA" : role === "cta" ? "VIRADA" : `PONTO ${slideIndex}`,
-            fill: imageLayout ? withAlpha("#F6EFE8", 0.86) : withAlpha(warmLight, 0.72),
+            fill: imageLayout ? withAlpha(textPrimary, 0.86) : withAlpha(textMuted, 0.72),
             fontSize: 15,
             fontFamily: "Sora",
             fontStyle: "bold",
@@ -234,7 +236,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
             x: 250,
             y: role === "cta" ? 268 : 308,
             text: "DESIGN",
-            fill: warmMid,
+            fill: accent,
             fontSize: 22,
             fontFamily: "Montserrat",
             fontStyle: "bold",
