@@ -1,11 +1,11 @@
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
-import { updateProfile } from "firebase/auth";
+import { updateProfile, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
-import { db, storage } from "../../services/firebase";
+import { auth, db, storage } from "../../services/firebase";
 import { useAuth } from "../../lib/hooks/useAuth";
-import { AppSidebar } from "../../components/app_sidebar/AppSidebar";
+
 import "./ProfilePage.css";
 import type { UserData } from "../../types/userData";
 
@@ -13,7 +13,7 @@ type UserProfileDoc = {
     displayName?: string;
     avatarUrl?: string;
     specialization?: string;
-    tokensBalance?: number;
+    creditsBalance?: number;
     email?: string;
 };
 
@@ -24,7 +24,7 @@ export default function ProfilePage() {
     const [displayName, setDisplayName] = useState("");
     const [avatarUrl, setAvatarUrl] = useState("");
     const [specialization, setSpecialization] = useState("");
-    const [tokensBalance, setTokensBalance] = useState(0);
+    const [creditsBalance, setCreditsBalance] = useState(0);
     const [email, setEmail] = useState("");
     const [userData, setUserData] = useState<UserData | null>(null);
 
@@ -32,6 +32,12 @@ export default function ProfilePage() {
     const [saving, setSaving] = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!statusMessage) return;
+        const t = setTimeout(() => setStatusMessage(null), 3000);
+        return () => clearTimeout(t);
+    }, [statusMessage]);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -64,7 +70,7 @@ export default function ProfilePage() {
             setDisplayName(data.displayName ?? user.displayName ?? "");
             setAvatarUrl(data.avatarUrl ?? user.photoURL ?? "");
             setSpecialization(data.specialization ?? "");
-            setTokensBalance(data.tokensBalance ?? 0);
+            setCreditsBalance(data.creditsBalance ?? 0);
             setEmail(data.email ?? user.email ?? "");
         });
 
@@ -206,13 +212,7 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="app_shell app_shell_locked">
-            <AppSidebar
-                avatarUrl={userData?.avatarUrl ?? user?.photoURL ?? null}
-                initials={userData?.displayName?.[0]?.toUpperCase() ?? user?.displayName?.[0]?.toUpperCase() ?? "U"}
-            />
-
-            <main className="app_shell_main app_shell_main_scroll">
+        <>
                 <div className="profile_page">
                     <div className="profile_surface">
                         <header className="profile_header">
@@ -274,8 +274,8 @@ export default function ProfilePage() {
                                 <p className="profile_avatar_hint">Use uma foto nítida para o avatar aparecer melhor nos templates.</p>
 
                                 <div className="profile_balance">
-                                    <span>Saldo de tokens</span>
-                                    <strong>{tokensBalance}</strong>
+                                    <span>Saldo de créditos</span>
+                                    <strong>{creditsBalance}</strong>
                                     <small>Disponíveis para gerar e iterar mais rápido</small>
                                 </div>
                             </div>
@@ -313,15 +313,29 @@ export default function ProfilePage() {
                                     <button className="save_btn" type="button" onClick={handleSaveProfile} disabled={saving}>
                                         {saving ? "Salvando..." : "Salvar perfil"}
                                     </button>
+                                    <button
+                                        className="logout_btn"
+                                        type="button"
+                                        onClick={async () => {
+                                            await signOut(auth);
+                                            navigate("/");
+                                        }}
+                                    >
+                                        Sair
+                                    </button>
                                 </div>
 
-                                {statusMessage && <p className="profile_status ok">{statusMessage}</p>}
                                 {errorMessage && <p className="profile_status error">{errorMessage}</p>}
                             </div>
                         </section>
                     </div>
                 </div>
-            </main>
-        </div>
+
+            {statusMessage && (
+                <div className="profile_snackbar">
+                    <span>✓ {statusMessage}</span>
+                </div>
+            )}
+        </>
     );
 }

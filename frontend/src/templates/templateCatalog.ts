@@ -2,7 +2,8 @@ export type TemplateId =
     | "streetwearPro"
     | "luxuryMinimal"
     | "microBlogBold"
-    | "editorial3D";
+    | "editorial3D"
+    | "glassEditorial";
 
 export type TemplateCatalogItem = {
     id: TemplateId;
@@ -36,6 +37,12 @@ export const TEMPLATE_CATALOG: TemplateCatalogItem[] = [
         label: "Editorial 3D",
         description: "Layout com profundidade visual e elementos tridimensionais.",
         defaultTheme: "editorial3d",
+    },
+    {
+        id: "glassEditorial",
+        label: "Glass Editorial",
+        description: "Painel translúcido com linguagem de reportagem visual.",
+        defaultTheme: "glass_editorial",
     },
 ];
 

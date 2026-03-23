@@ -25,6 +25,13 @@ const DESIGN_PALETTES: Record<TemplateId, ResolvedPalette> = {
         accent: "#006884",
         accent2: "#375f65",
     },
+    glassEditorial: {
+        bg: "#1A232A",
+        text: "#F7FAFC",
+        muted: "#C7D0D9",
+        accent: "#8FB7BE",
+        accent2: "#C08A5C",
+    },
     microBlogBold: {
         bg: "#F5F5F0",
         text: "#0A0A0A",

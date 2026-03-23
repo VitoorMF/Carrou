@@ -1,5 +1,5 @@
 import { Circle, Group, Image, Layer, Line, Path, Rect, Stage, Text } from "react-konva";
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import type { Carousel, El, Slide } from "./types";
 import { useKonvaImage } from "./hooks/useKonvaImage";
 import { ShapeRenderer } from "./renderers/ShapeRenderer";
@@ -64,6 +64,34 @@ function normalizeFontFamily(raw?: string) {
     return `${raw}, Manrope`;
 }
 
+function useLoadingPhase(active: boolean) {
+    const [phase, setPhase] = useState(0);
+
+    useEffect(() => {
+        if (!active) {
+            setPhase(0);
+            return;
+        }
+
+        let frameId = 0;
+        let start = performance.now();
+
+        const tick = (now: number) => {
+            const elapsed = now - start;
+            setPhase((elapsed % 1800) / 1800);
+            frameId = window.requestAnimationFrame(tick);
+        };
+
+        frameId = window.requestAnimationFrame(tick);
+
+        return () => {
+            window.cancelAnimationFrame(frameId);
+        };
+    }, [active]);
+
+    return phase;
+}
+
 function CanvasImageElement({
     el,
     renderedPosition,
@@ -77,74 +105,19 @@ function CanvasImageElement({
     const imageUrl = (el as any).url ?? (el as any).src;
     const img = useKonvaImage(imageUrl);
     const radius = (el as any).radius ?? (el as any).borderRadius ?? 0;
+    const status = String((el as any).status ?? "idle");
+    const isPending = status === "pending";
+    const loadingPhase = useLoadingPhase(isPending);
 
     if (!img) {
-        const prompt = String((el as any).prompt ?? "").trim();
         const isBackground = el.type === "backgroundImage";
+        const boxWidth = isBackground ? (el.width ?? DOC_W) : (el.width ?? 400);
+        const boxHeight = isBackground ? (el.height ?? DOC_H) : (el.height ?? 300);
+        const cx = boxWidth / 2;
+        const cy = boxHeight / 2;
 
-        if (isBackground) {
-            return (
-                <Group
-                    x={renderedPosition.x}
-                    y={renderedPosition.y}
-                    listening={isSelectable}
-                    draggable={isDraggable}
-                    onClick={onSelect}
-                    onTap={onSelect}
-                    onDragMove={onDragMove}
-                    onDragEnd={onDragEnd}
-                >
-                    <Rect
-                        x={0}
-                        y={0}
-                        width={el.width ?? DOC_W}
-                        height={el.height ?? DOC_H}
-                        fillLinearGradientStartPoint={{ x: 0, y: 0 }}
-                        fillLinearGradientEndPoint={{ x: el.width ?? DOC_W, y: el.height ?? DOC_H }}
-                        fillLinearGradientColorStops={[0, "rgba(80,80,80,0.32)", 1, "rgba(20,20,20,0.12)"]}
-                        opacity={el.opacity ?? 0.7}
-                        listening={isSelectable}
-                    />
-                    <Rect
-                        x={0}
-                        y={0}
-                        width={el.width ?? DOC_W}
-                        height={el.height ?? DOC_H}
-                        fill="rgba(8,10,15,0.14)"
-                        stroke={selected ? "rgba(20,93,243,0.85)" : "rgba(255,255,255,0.18)"}
-                        strokeWidth={selected ? 2 : 1.4}
-                        dash={[12, 10]}
-                        listening={false}
-                    />
-                    <Rect
-                        x={32}
-                        y={28}
-                        width={104}
-                        height={30}
-                        cornerRadius={15}
-                        fill="rgba(15,23,42,0.6)"
-                        listening={false}
-                    />
-                    <Text
-                        x={32}
-                        y={36}
-                        width={104}
-                        text="BG IMAGE"
-                        fill="rgba(255,255,255,0.92)"
-                        fontFamily="Sora"
-                        fontStyle="bold"
-                        fontSize={11}
-                        align="center"
-                        letterSpacing={1}
-                        listening={false}
-                    />
-                </Group>
-            );
-        }
-
-        const labelWidth = Math.max(32, (el.width ?? 400) - 40);
-        const previewPrompt = prompt.length > 180 ? `${prompt.slice(0, 180).trimEnd()}...` : prompt;
-        const promptLabel = previewPrompt || "Sem prompt definido";
+        // Pulso suave: 0.18 → 0.42 → 0.18
+        const pulse = 0.18 + Math.sin(loadingPhase * Math.PI) * 0.24;
 
         return (
             <Group
@@ -157,89 +130,101 @@ function CanvasImageElement({
                 onDragMove={onDragMove}
                 onDragEnd={onDragEnd}
             >
+                {/* Base */}
                 <Rect
                     x={0}
                     y={0}
-                    width={el.width ?? 400}
-                    height={el.height ?? 300}
-                    fillLinearGradientStartPoint={{ x: 0, y: 0 }}
-                    fillLinearGradientEndPoint={{ x: 0, y: el.height ?? 300 }}
-                    fillLinearGradientColorStops={[0, "rgba(255,255,255,0.09)", 1, "rgba(255,255,255,0.03)"]}
-                    cornerRadius={radius}
-                    stroke={selected ? "rgba(20,93,243,0.85)" : undefined}
-                    strokeWidth={selected ? 2 : 0}
+                    width={boxWidth}
+                    height={boxHeight}
+                    fill={isPending ? "rgba(14,18,30,0.72)" : "rgba(14,18,30,0.52)"}
+                    cornerRadius={radius || (isBackground ? 0 : 4)}
                     listening={isSelectable}
                 />
+
+                {/* Borda sutil — selecionado vira azul */}
                 <Rect
                     x={0}
                     y={0}
-                    width={el.width ?? 400}
-                    height={el.height ?? 300}
-                    fill="rgba(8,10,15,0.18)"
-                    stroke="rgba(255,255,255,0.28)"
-                    strokeWidth={1.8}
-                    cornerRadius={radius}
-                    dash={[10, 7]}
+                    width={boxWidth}
+                    height={boxHeight}
+                    fill="transparent"
+                    cornerRadius={radius || (isBackground ? 0 : 4)}
+                    stroke={
+                        selected
+                            ? "rgba(20,93,243,0.85)"
+                            : isPending
+                                ? `rgba(100,130,220,${0.22 + pulse * 0.6})`
+                                : "rgba(255,255,255,0.10)"
+                    }
+                    strokeWidth={selected ? 2 : 1}
                     listening={false}
                 />
-                <Circle x={28} y={32} radius={10} fill="rgba(255,255,255,0.22)" listening={false} />
-                <Path
-                    x={22}
-                    y={26}
-                    data="M0,10 L6,4 L11,9 L16,3 L22,9 L22,18 L0,18 Z"
-                    fill="rgba(255,255,255,0.82)"
-                    opacity={0.85}
-                    listening={false}
-                />
-                <Rect
-                    x={48}
-                    y={18}
-                    width={84}
-                    height={28}
-                    cornerRadius={14}
-                    fill="rgba(255,255,255,0.18)"
-                    listening={false}
-                />
-                <Text
-                    x={48}
-                    y={25}
-                    width={84}
-                    text="AI IMAGE"
-                    fill="rgba(255,255,255,0.92)"
-                    fontFamily="Sora"
-                    fontStyle="bold"
-                    fontSize={11}
-                    align="center"
-                    letterSpacing={1}
-                    listening={false}
-                />
-                <Text
-                    x={20}
-                    y={58}
-                    width={labelWidth}
-                    text={promptLabel}
-                    fill="rgba(255,255,255,0.66)"
-                    fontFamily="Manrope"
-                    fontStyle="normal"
-                    fontSize={15}
-                    lineHeight={1.42}
-                    letterSpacing={0}
-                    listening={false}
-                />
+
+                {isPending ? (
+                    <>
+                        {/* Três barras animadas — skeleton minimalista */}
+                        <Rect
+                            x={cx - 48}
+                            y={cy - 28}
+                            width={96}
+                            height={6}
+                            cornerRadius={3}
+                            fill={`rgba(160,185,255,${pulse * 1.6})`}
+                            listening={false}
+                        />
+                        <Rect
+                            x={cx - 32}
+                            y={cy - 12}
+                            width={64}
+                            height={4}
+                            cornerRadius={2}
+                            fill={`rgba(130,160,240,${pulse})`}
+                            listening={false}
+                        />
+                        <Rect
+                            x={cx - 20}
+                            y={cy + 4}
+                            width={40}
+                            height={3}
+                            cornerRadius={2}
+                            fill={`rgba(110,140,220,${pulse * 0.7})`}
+                            listening={false}
+                        />
+                    </>
+                ) : (
+                    <>
+                        {/* Ícone de imagem — dois triângulos + círculo, estilo wireframe */}
+                        <Circle
+                            x={cx - 14}
+                            y={cy - 14}
+                            radius={7}
+                            stroke="rgba(255,255,255,0.22)"
+                            strokeWidth={1.5}
+                            fill="transparent"
+                            listening={false}
+                        />
+                        <Path
+                            x={cx - 28}
+                            y={cy - 2}
+                            data="M0,24 L18,4 L30,16 L42,8 L56,24 Z"
+                            fill="rgba(255,255,255,0.10)"
+                            stroke="rgba(255,255,255,0.20)"
+                            strokeWidth={1.2}
+                            listening={false}
+                        />
+                    </>
+                )}
             </Group>
         );
     }
 
+    // — imagem carregada, igual ao original —
     const mode = (el as any).cover ?? (el as any).fit ?? "cover";
     const iw = (img as any).naturalWidth || (img as any).width || 1;
     const ih = (img as any).naturalHeight || (img as any).height || 1;
     const elW = el.width ?? DOC_W;
     const elH = el.height ?? DOC_H;
-
-    const scale = mode === "contain"
-        ? Math.min(elW / iw, elH / ih)
-        : Math.max(elW / iw, elH / ih);
-
+    const scale = mode === "contain" ? Math.min(elW / iw, elH / ih) : Math.max(elW / iw, elH / ih);
     const drawW = iw * scale;
     const drawH = ih * scale;
     const cropX = (drawW - elW) / 2 / scale;
@@ -249,13 +234,13 @@ function CanvasImageElement({
 
     return (
         <Group
-                x={renderedPosition.x}
-                y={renderedPosition.y}
-                listening={isSelectable}
-                draggable={isDraggable}
-                onClick={onSelect}
-                onTap={onSelect}
-                onDragMove={onDragMove}
+            x={renderedPosition.x}
+            y={renderedPosition.y}
+            listening={isSelectable}
+            draggable={isDraggable}
+            onClick={onSelect}
+            onTap={onSelect}
+            onDragMove={onDragMove}
             onDragEnd={onDragEnd}
         >
             <Image
@@ -582,7 +567,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(
                             y={el.y}
                             width={el.width}
                             height={el.height}
-                            cornerRadius={el.radius ?? 16}
+                            cornerRadius={el.radius}
                             fill={el.fill ?? "rgba(255,255,255,0.08)"}
                             stroke={el.stroke ?? "rgba(255,255,255,0.14)"}
                             strokeWidth={el.strokeWidth ?? 1}
@@ -661,7 +646,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(
                             shadowOffsetY={el.shadowOffsetY}
                             shadowOpacity={el.shadowOpacity}
                             listening
-                            draggable={isMovable(el)}
+                            draggable={isMovable(el) && isSelected(el)}
                             onClick={() => selectElement(el)}
                             onTap={() => selectElement(el)}
                             onDragMove={(event) => handleDragMove(el, event.target)}
@@ -681,7 +666,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(
                             renderedPosition={getRenderedPosition(el)}
                             selected={isSelected(el)}
                             isSelectable
-                            isDraggable
+                            isDraggable={isSelected(el)}
                             onSelect={() => selectElement(el)}
                             onDragMove={(event) => handleDragMove(el, event.target)}
                             onDragEnd={(event) => handleDragEnd(el, event.target)}

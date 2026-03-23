@@ -124,7 +124,7 @@
     border: 2px solid rgba(255, 255, 255, 0.26);
 }
 
-.sidebar_avatar_img:active {
+.sidebar_avatar_button.active .sidebar_avatar_img {
     border-color: #f77e58;
 }
 

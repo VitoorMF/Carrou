@@ -2,7 +2,8 @@ export type TemplateId =
     | "streetwearPro"
     | "luxuryMinimal"
     | "microBlogBold"
-    | "editorial3D";
+    | "editorial3D"
+    | "glassEditorial";
 
 export type SlideRole = "hook" | "content" | "cta";
 

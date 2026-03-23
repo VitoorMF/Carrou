@@ -12,10 +12,19 @@ type GenerateCarouselResponse = {
     projectId: string;
 };
 
+type CreateCreditCheckoutResponse = {
+    ok: boolean;
+    purchaseId: string;
+    checkoutUrl: string;
+};
+
 const USE_FIREBASE_EMULATORS = import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true";
 const GENERATE_CAROUSEL_ENDPOINT = USE_FIREBASE_EMULATORS
     ? "http://127.0.0.1:5001/carrosselize/southamerica-east1/generateCarousel"
     : "https://southamerica-east1-carrosselize.cloudfunctions.net/generateCarousel";
+const CREATE_CREDIT_CHECKOUT_ENDPOINT = USE_FIREBASE_EMULATORS
+    ? "http://127.0.0.1:5001/carrosselize/southamerica-east1/createCreditCheckout"
+    : "https://southamerica-east1-carrosselize.cloudfunctions.net/createCreditCheckout";
 
 export async function generateCarousel(
     payload: GenerateCarouselPayload
@@ -67,4 +76,40 @@ export async function generateCarousel(
     }
 
     return data as GenerateCarouselResponse;
+}
+
+export async function createCreditCheckout(productId: string): Promise<CreateCreditCheckoutResponse> {
+    const user = auth.currentUser;
+    if (!user) {
+        throw new Error("Usuário não autenticado.");
+    }
+
+    const idToken = await user.getIdToken(true);
+
+    const res = await fetch(CREATE_CREDIT_CHECKOUT_ENDPOINT, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ productId }),
+    });
+
+    const contentType = res.headers.get("content-type") ?? "";
+    const data = contentType.includes("application/json")
+        ? await res.json()
+        : await res.text();
+
+    if (!res.ok) {
+        const message = typeof data === "string"
+            ? data
+            : data?.error ?? data?.message ?? "Falha ao iniciar checkout.";
+        throw new Error(String(message));
+    }
+
+    if (!data?.ok || !data?.checkoutUrl || !data?.purchaseId) {
+        throw new Error("Falha ao iniciar checkout.");
+    }
+
+    return data as CreateCreditCheckoutResponse;
 }

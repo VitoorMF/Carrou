@@ -7,7 +7,7 @@ import { ref as storageRef, listAll, deleteObject } from "firebase/storage";
 import { useAuth } from "../../lib/hooks/useAuth";
 import { applyProfileCardIdentity } from "../../lib/applyProfileCardIdentity";
 import token from "../../assets/icons/token_icon.svg";
-import { AppSidebar } from "../../components/app_sidebar/AppSidebar";
+
 import { Canvas } from "../../editor/canvas/Canvas";
 import type { Carousel } from "../../editor/canvas/types";
 import type { UserData } from "../../types/userData";
@@ -178,13 +178,6 @@ export function DashboardPage() {
     }
 
     return (
-        <div className="app_shell">
-            <AppSidebar
-                avatarUrl={userData?.avatarUrl ?? user?.photoURL ?? null}
-                initials={userData?.displayName?.[0]?.toUpperCase() ?? user?.displayName?.[0]?.toUpperCase() ?? "U"}
-            />
-
-            <main className="app_shell_main">
                 <div className="dashboard">
                     <div className="dashboard_surface">
                         <header className="dashboard_header">
@@ -195,8 +188,8 @@ export function DashboardPage() {
 
                             <div className="header_actions">
                                 <button type="button" className="token_chip" onClick={() => navigate("/plans")}>
-                                    <img src={token} alt="Tokens" />
-                                    <span>{userData?.tokensBalance ?? 0}</span>
+                                    <img src={token} alt="Créditos" />
+                                    <span>{userData?.creditsBalance ?? 0}</span>
                                 </button>
 
                                 <button
@@ -357,7 +350,5 @@ export function DashboardPage() {
                         </section>
                     </div>
                 </div>
-            </main>
-        </div>
     );
 }

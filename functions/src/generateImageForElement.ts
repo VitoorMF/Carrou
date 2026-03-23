@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import cors from "cors";
 import { defineSecret } from "firebase-functions/params";
 import { randomUUID } from "crypto";
+import { assertHasCredits, debitCredits } from "./payments/credits";
 
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -30,6 +31,21 @@ export const generateImageForElement = onRequest(
                     return res.status(405).json({ ok: false, error: "Use POST" });
                 }
 
+                const authHeader = req.headers.authorization;
+                if (!authHeader || !authHeader.startsWith("Bearer ")) {
+                    return res.status(401).json({ ok: false, error: "Usuário não autenticado." });
+                }
+
+                const idToken = authHeader.slice("Bearer ".length).trim();
+                let uid = "";
+                try {
+                    const decoded = await admin.auth().verifyIdToken(idToken);
+                    uid = decoded.uid;
+                } catch (error) {
+                    logger.warn("generateImageForElement token inválido", { error });
+                    return res.status(401).json({ ok: false, error: "Usuário não autenticado." });
+                }
+
                 const { projectId, slideId, elementId } = req.body ?? {};
                 if (!projectId || !slideId || !elementId) {
                     return res.status(400).json({ ok: false, error: "Missing projectId/slideId/elementId" });
@@ -40,6 +56,12 @@ export const generateImageForElement = onRequest(
                 if (!snap.exists) return res.status(404).json({ ok: false, error: "Project not found" });
 
                 const project = snap.data() as any;
+                if (project?.ownerId !== uid) {
+                    return res.status(403).json({ ok: false, error: "Você não tem acesso a este projeto." });
+                }
+
+                const isTrialProject = project?.isTrial === true;
+
                 const renderCarousel = project?.renderCarousel ?? null;
                 const slides = Array.isArray(renderCarousel?.slides)
                     ? renderCarousel.slides
@@ -194,6 +216,7 @@ export const generateImageForElement = onRequest(
 
                 const path = `projects/${projectId}/slides/${slideId}/${elementId}.png`;
                 const file = bucket.file(path);
+                const imageDebitTransactionId = `generate_image_${projectId}_${slideId}_${elementId}`;
 
                 // idempotente
                 if (el.url || el.src) {
@@ -257,6 +280,10 @@ export const generateImageForElement = onRequest(
                     return res.status(400).json({ ok: false, error: "Missing prompt" });
                 }
 
+                if (!isTrialProject) {
+                    await assertHasCredits(uid, 1);
+                }
+
                 // marca pending
                 writeElement(slide, elRef, { ...el, status: "pending" });
 
@@ -306,6 +333,18 @@ export const generateImageForElement = onRequest(
                 const bucketName = bucket.name;
                 const encodedPath = encodeURIComponent(path);
                 const src = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${downloadToken}`;
+
+                if (!isTrialProject) {
+                    await debitCredits({
+                        uid,
+                        amount: 1,
+                        reason: "generate_image",
+                        transactionId: imageDebitTransactionId,
+                        projectId,
+                        slideId,
+                        elementId,
+                    });
+                }
 
 
                 // status ready + src

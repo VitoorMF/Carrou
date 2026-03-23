@@ -1,23 +1,39 @@
 import { useEffect, useMemo, useState } from "react";
-import { onSnapshot, doc } from "firebase/firestore";
-import { AppSidebar } from "../../components/app_sidebar/AppSidebar";
+import { onSnapshot, doc, collection, query, orderBy, limit } from "firebase/firestore";
+
 import { useAuth } from "../../lib/hooks/useAuth";
 import { db } from "../../services/firebase";
+import { createCreditCheckout } from "../../services/functions";
 import type { UserData } from "../../types/userData";
 import "./PlansPage.css";
 
-type BillingPlan = {
+type CreditTransaction = {
     id: string;
-    name: string;
-    price: string;
-    cadence: string;
-    credits: number;
-    valuePerCredit: string;
-    description: string;
-    highlights: string[];
-    badge?: string;
-    current?: boolean;
+    type: "purchase" | "debit";
+    amount: number;
+    reason: string;
+    balanceAfter: number;
+    createdAt: { toDate: () => Date } | null;
+    productId?: string | null;
+    projectId?: string | null;
 };
+
+function reasonLabel(reason: string) {
+    switch (reason) {
+        case "topup_purchase": return "Compra de créditos";
+        case "generate_carousel": return "Carrossel gerado";
+        case "generate_image": return "Imagem gerada";
+        default: return reason;
+    }
+}
+
+function formatDate(ts: CreditTransaction["createdAt"]) {
+    if (!ts?.toDate) return "—";
+    return ts.toDate().toLocaleDateString("pt-BR", {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+    });
+}
 
 type TopUp = {
     id: string;
@@ -27,65 +43,27 @@ type TopUp = {
     valuePerCredit: string;
 };
 
-const plans: BillingPlan[] = [
-    {
-        id: "free",
-        name: "Free",
-        price: "R$ 0",
-        cadence: "uma vez",
-        credits: 10,
-        valuePerCredit: "Comece sem cartão",
-        description: "Para experimentar o fluxo completo e validar o produto no seu ritmo.",
-        highlights: [
-            "10 créditos para começar",
-            "Geração de carrosséis com IA",
-            "Editor visual e export em PNG/ZIP",
-        ],
-        current: true,
-    },
-    {
-        id: "starter",
-        name: "Starter",
-        price: "R$ 32",
-        cadence: "/mês",
-        credits: 40,
-        valuePerCredit: "R$ 0,80/crédito",
-        description: "Ideal para quem publica com frequência e quer previsibilidade de custo.",
-        highlights: [
-            "Até ~6 carrosséis completos",
-            "Créditos renovados todo mês",
-            "Mais econômico do que compra avulsa",
-        ],
-        badge: "Mais popular",
-    },
-    {
-        id: "pro",
-        name: "Pro",
-        price: "R$ 67",
-        cadence: "/mês",
-        credits: 100,
-        valuePerCredit: "R$ 0,67/crédito",
-        description: "O melhor ponto de equilíbrio para creators, freelancers e times pequenos.",
-        highlights: [
-            "Até ~16 carrosséis completos",
-            "Mais espaço para testar variações",
-            "Plano mais equilibrado em custo e volume",
-        ],
-    },
-];
-
 const topUps: TopUp[] = [
     { id: "credits_14", name: "Top-up R$ 17", price: "R$ 17", credits: 14, valuePerCredit: "R$ 1,21/crédito" },
     { id: "credits_35", name: "Top-up R$ 39", price: "R$ 39", credits: 35, valuePerCredit: "R$ 1,11/crédito" },
     { id: "credits_100", name: "Top-up R$ 99", price: "R$ 99", credits: 100, valuePerCredit: "R$ 0,99/crédito" },
 ];
 
-function ActionButton({ children }: { children: string }) {
+function ActionButton({
+    children,
+    onClick,
+    disabled = false,
+}: {
+    children: string;
+    onClick: () => void;
+    disabled?: boolean;
+}) {
     return (
         <button
             type="button"
             className="billing_action"
-            onClick={() => alert("Checkout ainda não implementado. Esta tela já está pronta para receber Stripe.")}
+            onClick={onClick}
+            disabled={disabled}
         >
             {children}
         </button>
@@ -95,6 +73,9 @@ function ActionButton({ children }: { children: string }) {
 export default function BillingPage() {
     const { user } = useAuth();
     const [userData, setUserData] = useState<UserData | null>(null);
+    const [checkoutLoadingId, setCheckoutLoadingId] = useState<string | null>(null);
+    const [checkoutError, setCheckoutError] = useState<string | null>(null);
+    const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
 
     useEffect(() => {
         if (!user) {
@@ -117,27 +98,52 @@ export default function BillingPage() {
         return () => unsub();
     }, [user]);
 
+    useEffect(() => {
+        if (!user) {
+            setTransactions([]);
+            return;
+        }
+        const q = query(
+            collection(db, "users", user.uid, "creditTransactions"),
+            orderBy("createdAt", "desc"),
+            limit(20)
+        );
+        const unsub = onSnapshot(q, (snap) => {
+            setTransactions(
+                snap.docs.map(d => ({ id: d.id, ...d.data() } as CreditTransaction))
+            );
+        });
+        return () => unsub();
+    }, [user]);
+
     const creditsBalance = useMemo(
-        () => userData?.creditsBalance ?? userData?.tokensBalance ?? 0,
+        () => userData?.creditsBalance ?? 0,
         [userData]
     );
 
-    return (
-        <div className="app_shell app_shell_locked">
-            <AppSidebar
-                avatarUrl={userData?.avatarUrl ?? user?.photoURL ?? null}
-                initials={userData?.displayName?.[0]?.toUpperCase() ?? user?.displayName?.[0]?.toUpperCase() ?? "U"}
-            />
+    async function handleBuyCredits(productId: string) {
+        try {
+            setCheckoutLoadingId(productId);
+            setCheckoutError(null);
 
-            <main className="app_shell_main app_shell_main_scroll">
+            const { checkoutUrl } = await createCreditCheckout(productId);
+            window.location.href = checkoutUrl;
+        } catch (error: any) {
+            setCheckoutError(error?.message ?? "Não foi possível iniciar a compra.");
+        } finally {
+            setCheckoutLoadingId(null);
+        }
+    }
+
+    return (
                 <div className="billing_page">
                     <section className="billing_hero">
                         <div className="billing_hero_copy">
                             <p className="billing_kicker">Billing</p>
-                            <h1>Planos, créditos e recarga</h1>
+                            <h1>Créditos e recarga</h1>
                             <p className="billing_lead">
                                 Gerencie seu saldo e escolha a melhor forma de continuar gerando carrosséis e imagens
-                                com IA. Assinaturas liberam créditos mensais, e top-ups cobrem picos de uso.
+                                com IA.
                             </p>
 
                             <div className="billing_rules">
@@ -162,66 +168,6 @@ export default function BillingPage() {
                         </aside>
                     </section>
 
-                    <section className="billing_section">
-                        <div className="billing_section_head">
-                            <div>
-                                <p className="billing_section_kicker">Assinaturas</p>
-                                <h2>Escolha um plano mensal</h2>
-                            </div>
-                            <p>
-                                Os créditos mensais são ideais para quem usa o Carrosselize com frequência e quer
-                                previsibilidade de custo.
-                            </p>
-                        </div>
-
-                        <div className="billing_plans_grid">
-                            {plans.map((plan) => (
-                                <article className={`billing_plan_card ${plan.badge ? "featured" : ""}`} key={plan.id}>
-                                    {(plan.badge || plan.current) && (
-                                        <span className="billing_badge">
-                                            {plan.current ? "Plano atual" : plan.badge}
-                                        </span>
-                                    )}
-                                    <div className="billing_plan_head">
-                                        <h3>{plan.name}</h3>
-                                        <p className="billing_plan_description">{plan.description}</p>
-                                    </div>
-
-                                    <div className="billing_price_block">
-                                        <strong>{plan.price}</strong>
-                                        <span>{plan.cadence}</span>
-                                    </div>
-
-                                    <div className="billing_plan_meta">
-                                        <div>
-                                            <span>Créditos</span>
-                                            <strong>{plan.credits}</strong>
-                                        </div>
-                                        <div>
-                                            <span>Valor</span>
-                                            <strong>{plan.valuePerCredit}</strong>
-                                        </div>
-                                    </div>
-
-                                    <ul className="billing_feature_list">
-                                        {plan.highlights.map((item) => (
-                                            <li key={item}>{item}</li>
-                                        ))}
-                                    </ul>
-
-                                    {plan.current ? (
-                                        <button type="button" className="billing_action billing_action_current" disabled>
-                                            Plano atual
-                                        </button>
-                                    ) : (
-                                        <ActionButton>
-                                            {plan.id === "free" ? "Começar grátis" : `Assinar ${plan.name}`}
-                                        </ActionButton>
-                                    )}
-                                </article>
-                            ))}
-                        </div>
-                    </section>
 
                     <section className="billing_section">
                         <div className="billing_section_head">
@@ -229,7 +175,6 @@ export default function BillingPage() {
                                 <p className="billing_section_kicker">Créditos avulsos</p>
                                 <h2>Compre só quando precisar</h2>
                             </div>
-                            <p>Ideal para complementar o saldo sem trocar de plano ou para uso pontual.</p>
                         </div>
 
                         <div className="billing_topups_grid">
@@ -241,14 +186,49 @@ export default function BillingPage() {
 
                                     <div className="billing_topup_meta">
                                         <strong>{item.price}</strong>
-                                        <span>{item.valuePerCredit}</span>
                                     </div>
 
-                                    <ActionButton>Comprar créditos</ActionButton>
+                                    <ActionButton
+                                        onClick={() => handleBuyCredits(item.id)}
+                                        disabled={checkoutLoadingId === item.id}
+                                    >
+                                        {checkoutLoadingId === item.id ? "Abrindo checkout..." : "Comprar créditos"}
+                                    </ActionButton>
                                 </article>
                             ))}
                         </div>
+
+                        {checkoutError && <p className="errorText">{checkoutError}</p>}
                     </section>
+
+                    {transactions.length > 0 && (
+                        <section className="billing_section">
+                            <div className="billing_section_head">
+                                <div>
+                                    <p className="billing_section_kicker">Histórico</p>
+                                    <h2>Extrato de créditos</h2>
+                                </div>
+                            </div>
+
+                            <div className="billing_history">
+                                {transactions.map((tx) => (
+                                    <div key={tx.id} className="billing_history_row">
+                                        <div className={`billing_history_dot billing_history_dot_${tx.type}`} />
+                                        <div className="billing_history_info">
+                                            <span className="billing_history_reason">{reasonLabel(tx.reason)}</span>
+                                            <span className="billing_history_date">{formatDate(tx.createdAt)}</span>
+                                        </div>
+                                        <div className="billing_history_amount_col">
+                                            <span className={`billing_history_amount billing_history_amount_${tx.type}`}>
+                                                {tx.type === "purchase" ? "+" : ""}{tx.amount}
+                                            </span>
+                                            <span className="billing_history_balance">saldo: {tx.balanceAfter}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    )}
 
                     <section className="billing_faq">
                         <div className="billing_section_head">
@@ -264,8 +244,8 @@ export default function BillingPage() {
                                 <p>Não. Editar texto, posição, paleta e exportar não consome crédito.</p>
                             </article>
                             <article>
-                                <h3>Preciso assinar para usar?</h3>
-                                <p>Não. Você pode começar com o plano gratuito e depois comprar top-up ou assinar.</p>
+                                <h3>Preciso de assinatura para usar?</h3>
+                                <p>Não. Você pode usar seus créditos atuais e comprar mais sempre que precisar.</p>
                             </article>
                             <article>
                                 <h3>Quando o saldo é consumido?</h3>
@@ -274,7 +254,5 @@ export default function BillingPage() {
                         </div>
                     </section>
                 </div>
-            </main>
-        </div>
     );
 }

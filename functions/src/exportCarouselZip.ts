@@ -182,7 +182,7 @@ async function renderElement(el: AnyRecord, index: number, defs: string[], asset
         case "noise":
             return renderImageElement(el, index, defs, assetCache);
         case "glassCard":
-            return `<rect x="${num(el.x)}" y="${num(el.y)}" width="${num(el.width)}" height="${num(el.height)}" rx="${num(el.radius ?? 16)}" fill="${escapeAttr(el.fill ?? "rgba(255,255,255,0.08)")}" ${el.stroke ? `stroke="${escapeAttr(el.stroke)}"` : ""} ${el.strokeWidth ? `stroke-width="${num(el.strokeWidth)}"` : ""} opacity="${num(el.opacity ?? 1)}" />`;
+            return `<rect x="${num(el.x)}" y="${num(el.y)}" width="${num(el.width)}" height="${num(el.height)}" rx="${num(el.radius)}" fill="${escapeAttr(el.fill ?? "rgba(255,255,255,0.08)")}" ${el.stroke ? `stroke="${escapeAttr(el.stroke)}"` : ""} ${el.strokeWidth ? `stroke-width="${num(el.strokeWidth)}"` : ""} opacity="${num(el.opacity ?? 1)}" />`;
         default:
             return "";
     }

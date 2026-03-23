@@ -86,7 +86,7 @@ export function ShapeRenderer({ el }: { el: Extract<El, { type: "shape" }> }) {
                 x={x}
                 y={y}
                 width={w}
-                height={Math.max(2, h)}
+                height={h ?? 1}
                 fill={color}
                 opacity={opacity}
                 cornerRadius={Math.min(999, h / 2)}

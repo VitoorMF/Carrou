@@ -4,9 +4,10 @@ import { auth, db } from "../../services/firebase";
 import { useNavigate } from "react-router-dom";
 import { generateCarousel } from "../../services/functions";
 import { signInAnonymously } from "firebase/auth";
-import { AppSidebar } from "../../components/app_sidebar/AppSidebar";
+
 import { useAuth } from "../../lib/hooks/useAuth";
 import { onSnapshot, doc } from "firebase/firestore";
+import token from "../../assets/icons/token_icon.svg";
 import {
     DEFAULT_TEMPLATE_ID,
     TEMPLATE_CATALOG,
@@ -18,7 +19,8 @@ import {
 type UserData = {
     avatarUrl?: string;
     displayName?: string;
-    tokensBalance?: number;
+    creditsBalance?: number;
+    trialUsed?: boolean;
 };
 
 const USE_FIREBASE_EMULATORS = import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true";
@@ -134,13 +136,6 @@ export default function CreatePage() {
 
     // CreatePage.tsx (somente o JSX/HTML da página)
     return (
-        <div className="app_shell">
-            <AppSidebar
-                avatarUrl={userData?.avatarUrl ?? user?.photoURL ?? null}
-                initials={userData?.displayName?.[0]?.toUpperCase() ?? user?.displayName?.[0]?.toUpperCase() ?? "U"}
-            />
-
-            <main className="app_shell_main">
                 <section className="createPage">
                     <header className="createHeader">
                         <div className="headerLeft">
@@ -149,10 +144,16 @@ export default function CreatePage() {
                         </div>
 
                         <div className="headerRight">
-                            <div className="pill">
-                                <span className="pillDot" />
-                                <span className="pillText">{loading ? "Gerando..." : "Pronto para gerar"}</span>
-                            </div>
+                            {userData?.trialUsed === false ? (
+                                <div className="pill creditsPill">
+                                    <span className="pillText">🎁 1 carrossel grátis</span>
+                                </div>
+                            ) : (
+                                <div className="pill creditsPill" onClick={() => navigate("/plans")}>
+                                    <img src={token} alt="Créditos" />
+                                    <span className="pillText">{userData?.creditsBalance ?? 0}</span>
+                                </div>
+                            )}
                         </div>
                     </header>
 
@@ -178,7 +179,7 @@ export default function CreatePage() {
 
                                     <button
                                         type="button"
-                                        className="ghostBtn"
+                                        className="ghostBtn blackBtn"
                                         onClick={() =>
                                             setPrompt(prompts[Math.floor(Math.random() * prompts.length)])
                                         }
@@ -200,9 +201,7 @@ export default function CreatePage() {
                                 />
                                 <div className="textareaFooter">
                                     <span className="charCount">{prompt.length} caracteres</span>
-                                    <span className="kbdHint">
-                                        <span className="kbd">⌘</span> + <span className="kbd">Enter</span> para gerar
-                                    </span>
+
                                 </div>
                             </div>
 
@@ -210,15 +209,29 @@ export default function CreatePage() {
                                 <button
                                     className="primaryBtn"
                                     onClick={handleCreate}
-                                    disabled={loading || !prompt.trim()}
+                                    disabled={
+                                        loading ||
+                                        !prompt.trim() ||
+                                        (userData?.trialUsed !== false && (userData?.creditsBalance ?? 0) === 0)
+                                    }
                                 >
                                     {loading ? (
                                         <>
                                             <span className="spinner" />
                                             Gerando…
                                         </>
+                                    ) : userData?.trialUsed !== false && (userData?.creditsBalance ?? 0) === 0 ? (
+                                        <span>Sem créditos</span>
+                                    ) : userData?.trialUsed === false ? (
+                                        <span>Gerar carrossel grátis</span>
                                     ) : (
-                                        "Gerar carrossel"
+                                        <div className="btnLabel">
+                                            <span>Gerar carrossel</span>
+                                            <div className="creditsCost">
+                                                <span>-1</span>
+                                                <img src={token} alt="Créditos" />
+                                            </div>
+                                        </div>
                                     )}
                                 </button>
 
@@ -239,7 +252,7 @@ export default function CreatePage() {
                         <div className="card settingsCard">
                             <div className="cardTop">
                                 <div className="cardTitleWrap">
-                                    <h2 className="cardTitle">Layout pronto</h2>
+                                    <h2 className="cardTitle">Layouts</h2>
                                     <p className="cardHint">Escolha um preset visual e ajuste só o conteúdo no editor.</p>
                                 </div>
                             </div>
@@ -257,12 +270,7 @@ export default function CreatePage() {
                                                 disabled={loading}
                                                 title={preset.description}
                                             >
-                                                <div className={`layoutPreview is-${preset.id}`} aria-hidden="true">
-                                                    <span className="layoutPreviewBar" />
-                                                    <span className="layoutPreviewHero" />
-                                                    <span className="layoutPreviewText top" />
-                                                    <span className="layoutPreviewText bottom" />
-                                                </div>
+                                                <TemplatePreview templateId={preset.id} />
                                                 <span className="layoutPresetLabel">{preset.label}</span>
                                             </button>
                                         ))}
@@ -273,12 +281,77 @@ export default function CreatePage() {
                         </div>
                     </div>
                 </section>
-            </main>
-        </div>
     );
 
 
 
+}
+
+function TemplatePreview({ templateId }: { templateId: TemplateId }) {
+    if (templateId === "streetwearPro") {
+        return (
+            <div className="layoutPreview is-streetwearPro" aria-hidden="true">
+                <span className="previewStreetwearFrame" />
+                <span className="previewStreetwearTitle">HYPE</span>
+                <span className="previewStreetwearAccent" />
+                <span className="previewStreetwearLine previewStreetwearLineTop" />
+                <span className="previewStreetwearLine previewStreetwearLineBottom" />
+            </div>
+        );
+    }
+
+    if (templateId === "luxuryMinimal") {
+        return (
+            <div className="layoutPreview is-luxuryMinimal" aria-hidden="true">
+                <span className="previewLuxuryCard" />
+                <span className="previewLuxuryOverline" />
+                <span className="previewLuxuryTitle" />
+                <span className="previewLuxuryBody previewLuxuryBodyTop" />
+                <span className="previewLuxuryBody previewLuxuryBodyBottom" />
+                <span className="previewLuxurySeal" />
+            </div>
+        );
+    }
+
+    if (templateId === "microBlogBold") {
+        return (
+            <div className="layoutPreview is-microBlogBold" aria-hidden="true">
+                <span className="previewMicroPanel" />
+                <span className="previewMicroPhoto" />
+                <span className="previewMicroOverlay" />
+                <span className="previewMicroLabelLine" />
+                <span className="previewMicroTitleLine previewMicroTitleLineTop" />
+                <span className="previewMicroSupport previewMicroSupportTop" />
+                <span className="previewMicroSignatureLine" />
+            </div>
+        );
+    }
+
+    if (templateId === "glassEditorial") {
+        return (
+            <div className="layoutPreview is-glassEditorial" aria-hidden="true">
+                <span className="previewGlassBg" />
+                <span className="previewGlassPanel" />
+                <span className="previewGlassChrome" />
+                <span className="previewGlassDot previewGlassDotOne" />
+                <span className="previewGlassDot previewGlassDotTwo" />
+                <span className="previewGlassDot previewGlassDotThree" />
+                <span className="previewGlassTitleLine previewGlassTitleLineTop" />
+                <span className="previewGlassBodyLine previewGlassBodyLineTop" />
+                <span className="previewGlassFooterLine" />
+            </div>
+        );
+    }
+
+    return (
+        <div className="layoutPreview is-editorial3D" aria-hidden="true">
+            <span className="previewEditorialPanel" />
+            <span className="previewEditorialCube" />
+            <span className="previewEditorialTitle" />
+            <span className="previewEditorialBody previewEditorialBodyTop" />
+            <span className="previewEditorialBody previewEditorialBodyBottom" />
+        </div>
+    );
 }
 
 const prompts = [

@@ -85,6 +85,44 @@ export const TEMPLATE_PALETTE_PRESETS: Record<TemplateId, PalettePreset[]> = {
             },
         },
     ],
+    glassEditorial: [
+        {
+            id: "glass-storm",
+            label: "Storm",
+            description: "Frio, jornalístico e denso",
+            palette: {
+                bg: "#1A232A",
+                text: "#F7FAFC",
+                muted: "#C7D0D9",
+                accent: "#8FB7BE",
+                accent2: "#C08A5C",
+            },
+        },
+        {
+            id: "glass-ember",
+            label: "Ember",
+            description: "Mais quente e dramático",
+            palette: {
+                bg: "#221C1A",
+                text: "#FFF8F2",
+                muted: "#D9C8BC",
+                accent: "#E8A15B",
+                accent2: "#7A3E1D",
+            },
+        },
+        {
+            id: "glass-frost",
+            label: "Frost",
+            description: "Claro e documental",
+            palette: {
+                bg: "#E9EEF1",
+                text: "#17212B",
+                muted: "#5F7181",
+                accent: "#6A8CA5",
+                accent2: "#A66C4A",
+            },
+        },
+    ],
     luxuryMinimal: [
         {
             id: "luxury-gold",

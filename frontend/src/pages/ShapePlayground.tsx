@@ -15,9 +15,16 @@ const TEMPLATE_LABELS: Record<LocalTemplateId, string> = {
   editorial3D: "Editorial 3D",
   luxuryMinimal: "Luxury Minimal",
   microBlogBold: "Micro Blog Bold",
+  glassEditorial: "Glass Editorial",
 };
 
-const PLAYGROUND_IMAGE_URL = "https://firebasestorage.googleapis.com/v0/b/carrosselize.firebasestorage.app/o/projects%2Fd4nMnxJKT5xBM773XnKQ%2Fslides%2Fslide2%2Fphoto_1.png?alt=media&token=1bbbcc65-340a-4caf-841e-12ea5d4171e7";
+const PLAYGROUND_IMAGE_BY_TEMPLATE: Record<LocalTemplateId, string> = {
+  streetwearPro: "https://firebasestorage.googleapis.com/v0/b/carrosselize.firebasestorage.app/o/projects%2Fd4nMnxJKT5xBM773XnKQ%2Fslides%2Fslide2%2Fphoto_1.png?alt=media&token=1bbbcc65-340a-4caf-841e-12ea5d4171e7",
+  editorial3D: "https://firebasestorage.googleapis.com/v0/b/carrosselize.firebasestorage.app/o/projects%2Fd4nMnxJKT5xBM773XnKQ%2Fslides%2Fslide2%2Fphoto_1.png?alt=media&token=1bbbcc65-340a-4caf-841e-12ea5d4171e7",
+  luxuryMinimal: "https://firebasestorage.googleapis.com/v0/b/carrosselize.firebasestorage.app/o/projects%2Fd4nMnxJKT5xBM773XnKQ%2Fslides%2Fslide2%2Fphoto_1.png?alt=media&token=1bbbcc65-340a-4caf-841e-12ea5d4171e7",
+  microBlogBold: "https://firebasestorage.googleapis.com/v0/b/carrosselize.firebasestorage.app/o/projects%2Fd4nMnxJKT5xBM773XnKQ%2Fslides%2Fslide2%2Fphoto_1.png?alt=media&token=1bbbcc65-340a-4caf-841e-12ea5d4171e7",
+  glassEditorial: "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=1080&q=80",
+};
 
 function makeMockCarousel(themeToken: string): LayoutCarousel {
   return {
@@ -71,7 +78,7 @@ function makeMockCarousel(themeToken: string): LayoutCarousel {
   };
 }
 
-function applyPreviewImage(carousel: CanvasCarousel): CanvasCarousel {
+function applyPreviewImage(carousel: CanvasCarousel, imageUrl: string): CanvasCarousel {
   return {
     ...carousel,
     slides: carousel.slides.map((slide) => ({
@@ -79,17 +86,17 @@ function applyPreviewImage(carousel: CanvasCarousel): CanvasCarousel {
       layers: {
         background: (slide.layers?.background ?? []).map((element: any) =>
           element.type === "image" || element.type === "backgroundImage"
-            ? { ...element, src: PLAYGROUND_IMAGE_URL, url: PLAYGROUND_IMAGE_URL, status: "ready" }
+            ? { ...element, src: imageUrl, url: imageUrl, status: "ready" }
             : element
         ),
         atmosphere: (slide.layers?.atmosphere ?? []).map((element: any) =>
           element.type === "image" || element.type === "backgroundImage"
-            ? { ...element, src: PLAYGROUND_IMAGE_URL, url: PLAYGROUND_IMAGE_URL, status: "ready" }
+            ? { ...element, src: imageUrl, url: imageUrl, status: "ready" }
             : element
         ),
         content: (slide.layers?.content ?? []).map((element: any) =>
           element.type === "image" || element.type === "backgroundImage"
-            ? { ...element, src: PLAYGROUND_IMAGE_URL, url: PLAYGROUND_IMAGE_URL, status: "ready" }
+            ? { ...element, src: imageUrl, url: imageUrl, status: "ready" }
             : element
         ),
         ui: slide.layers?.ui ?? [],
@@ -100,7 +107,7 @@ function applyPreviewImage(carousel: CanvasCarousel): CanvasCarousel {
 
 function buildLocalPreview(templateId: LocalTemplateId, mock: LayoutCarousel): CanvasCarousel {
   const carousel = buildLayeredTemplateCarousel(templateId, mock as any) as unknown as CanvasCarousel;
-  return applyPreviewImage(carousel);
+  return applyPreviewImage(carousel, PLAYGROUND_IMAGE_BY_TEMPLATE[templateId]);
 }
 
 export default function ShapePlayground() {

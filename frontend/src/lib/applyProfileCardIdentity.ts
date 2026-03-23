@@ -53,19 +53,32 @@ function mapProfileCardLayer(
     }
 
     return elements.map((element) => {
-        if (element?.type !== "profileCard") {
-            return element;
+        if (element?.type === "profileCard") {
+            return {
+                ...element,
+                user: {
+                    ...(element.user ?? {}),
+                    name: displayName || element.user?.name || "Username",
+                    role: specialization || element.user?.role || "",
+                    avatarSrc: avatarUrl || element.user?.avatarSrc || "",
+                },
+            };
         }
 
-        return {
-            ...element,
-            user: {
-                ...(element.user ?? {}),
-                name: displayName || element.user?.name || "Username",
-                role: specialization || element.user?.role || "",
-                avatarSrc: avatarUrl || element.user?.avatarSrc || "",
-            },
-        };
+        // Assinatura de texto (microBlogBold): id começa com "signature_"
+        if (
+            element?.type === "text" &&
+            typeof element?.id === "string" &&
+            element.id.startsWith("signature_") &&
+            displayName
+        ) {
+            const sig = specialization
+                ? `${displayName.toUpperCase()}  |  ${specialization.toUpperCase()}`
+                : displayName.toUpperCase();
+            return { ...element, text: sig };
+        }
+
+        return element;
     });
 }
 

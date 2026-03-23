@@ -2,7 +2,8 @@ export type TemplateId =
     | "streetwearPro"
     | "luxuryMinimal"
     | "microBlogBold"
-    | "editorial3D";
+    | "editorial3D"
+    | "glassEditorial";
 
 export type TemplateCatalogItem = {
     id: TemplateId;
@@ -36,6 +37,12 @@ export const TEMPLATE_CATALOG: TemplateCatalogItem[] = [
         description: "Layout com profundidade visual e elementos tridimensionais.",
         defaultTheme: "editorial3d",
     },
+    {
+        id: "glassEditorial",
+        label: "Glass Editorial",
+        description: "Painel translúcido sobre fotografia forte, com clima de reportagem visual.",
+        defaultTheme: "glass_editorial",
+    },
 ];
 
 export const DEFAULT_TEMPLATE_ID: TemplateId = "microBlogBold";
@@ -45,6 +52,7 @@ const TEMPLATE_ID_ALIASES: Record<string, TemplateId> = {
     luxuryminimal: "luxuryMinimal",
     microblogbold: "microBlogBold",
     editorial3d: "editorial3D",
+    glasseditorial: "glassEditorial",
 };
 
 function normalizeTemplateToken(value: string) {
@@ -83,6 +91,10 @@ export function inferTemplateFromPrompt(prompt: string): TemplateCatalogItem {
 
     if (/3d|editorial|criativo|futur|tecnolog|produto/.test(value)) {
         return findTemplateById("editorial3D") ?? getDefaultTemplate();
+    }
+
+    if (/clima|clim[aá]tic|debate|document[aá]r|report|janela|vidro|glass|revista|reportagem/.test(value)) {
+        return findTemplateById("glassEditorial") ?? getDefaultTemplate();
     }
 
     return findTemplateById("microBlogBold") ?? getDefaultTemplate();

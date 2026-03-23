@@ -1,4 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
+import AppLayout from "./components/app_layout/AppLayout";
 import CreatePage from "./pages/create_page/CreatePage";
 import EditPage from "./pages/edit_page/EditPage";
 import AuthPage from "./pages/auth_page/AuthPage";
@@ -8,11 +9,16 @@ import ProfilePage from "./pages/profile_page/ProfilePage";
 import LayoutEditor from "./pages/ShapePlayground";
 
 export const router = createBrowserRouter([
-    { path: "/", element: <HomePage /> },
-    { path: "/create", element: <CreatePage /> },
-    { path: "/plans", element: <BillingPage /> },
-    { path: "/billing", element: <BillingPage /> },
-    { path: "/profile", element: <ProfilePage /> },
+    {
+        element: <AppLayout />,
+        children: [
+            { path: "/", element: <HomePage /> },
+            { path: "/create", element: <CreatePage /> },
+            { path: "/plans", element: <BillingPage /> },
+            { path: "/billing", element: <BillingPage /> },
+            { path: "/profile", element: <ProfilePage /> },
+        ],
+    },
     { path: "/auth", element: <AuthPage /> },
     { path: "/editor/:projectId", element: <EditPage /> },
     { path: "/playground", element: <LayoutEditor /> },

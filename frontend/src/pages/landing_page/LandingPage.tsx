@@ -4,7 +4,7 @@ import "./LandingPage.css";
 import logo from "../../assets/page/landing/logo.svg";
 import { useEffect, useState } from "react";
 import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "../../services/firebase";
 
 type TypewriterOptions = {
@@ -146,21 +146,28 @@ export function LandingPage() {
             const user = result.user;
 
             const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
 
-            await setDoc(
-                userRef,
-                {
+            if (!userSnap.exists()) {
+                // Primeiro login — cria o documento com valores iniciais
+                await setDoc(userRef, {
                     uid: user.uid,
                     email: user.email ?? "",
                     displayName: user.displayName ?? "User",
                     avatarUrl: user.photoURL ?? "",
-                    specialization: "Seu Cargo",
-                    tokensBalance: 10,
-                    updatedAt: serverTimestamp(),
+                    specialization: "",
+                    creditsBalance: 0,
+                    trialUsed: false,
                     createdAt: serverTimestamp(),
-                },
-                { merge: true }
-            );
+                    updatedAt: serverTimestamp(),
+                });
+            } else {
+                // Login subsequente — só atualiza email (pode ter mudado no Google)
+                await setDoc(userRef, {
+                    email: user.email ?? "",
+                    updatedAt: serverTimestamp(),
+                }, { merge: true });
+            }
 
             setIsAuthOpen(false);
             navigate("/");

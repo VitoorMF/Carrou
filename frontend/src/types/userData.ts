@@ -3,5 +3,4 @@ export type UserData = {
     displayName?: string;
     specialization?: string;
     creditsBalance?: number;
-    tokensBalance?: number;
 };

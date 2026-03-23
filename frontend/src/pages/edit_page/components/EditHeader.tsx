@@ -9,7 +9,6 @@ type EditHeaderProps = {
     onResetZoom: () => void;
     onZoomIn: () => void;
     onExportAllSlides: () => void;
-    onExportActiveSlide: () => void;
 };
 
 export function EditHeader({
@@ -23,7 +22,6 @@ export function EditHeader({
     onResetZoom,
     onZoomIn,
     onExportAllSlides,
-    onExportActiveSlide,
 }: EditHeaderProps) {
     return (
         <header className="editor_topbar">
@@ -55,15 +53,12 @@ export function EditHeader({
 
             <div className="topbar_group topbar_right">
                 <button
-                    className="secondary_button"
+                    className="primary_button"
                     type="button"
                     onClick={onExportAllSlides}
                     disabled={isExportingAllSlides || !hasServerCarousel}
                 >
-                    {isExportingAllSlides ? "Baixando..." : "Baixar todos"}
-                </button>
-                <button className="primary_button" type="button" onClick={onExportActiveSlide}>
-                    Exportar PNG
+                    {isExportingAllSlides ? "Baixando..." : "Exportar Slides"}
                 </button>
             </div>
         </header>

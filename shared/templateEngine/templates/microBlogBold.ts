@@ -224,24 +224,6 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
         }
     );
 
-    if (!imageLayout) {
-        elements.push({
-            id: `accent_line_${slideIndex}`,
-            type: "text",
-            x: 250,
-            y: role === "cta" ? 268 : 308,
-            text: "DESIGN",
-            fill: accent,
-            fontSize: 22,
-            fontFamily: "Montserrat",
-            fontStyle: "bold",
-            width: 180,
-            align: "left",
-            lineHeight: 1,
-            letterSpacing: 0.6,
-            opacity: 1,
-        });
-    }
 
     return elements.slice(0, 20);
 }

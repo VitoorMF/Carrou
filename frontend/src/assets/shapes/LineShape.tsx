@@ -8,7 +8,7 @@ type LineProps = {
 
 export function LineShape({
   length = 900,
-  thickness = 5,
+  thickness = 1,
   color = "currentColor",
   opacity = 0.2,
   direction = "horizontal",

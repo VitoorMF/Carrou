@@ -755,7 +755,6 @@ export default function EditPage() {
                 onResetZoom={resetZoom}
                 onZoomIn={zoomIn}
                 onExportAllSlides={exportAllSlides}
-                onExportActiveSlide={exportActiveSlide}
             />
 
             <div className="editor_workspace">

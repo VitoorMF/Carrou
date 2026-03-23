@@ -11,6 +11,7 @@ import { generateCarouselJson } from "./ai/generator";
 import { normalizeCarousel } from "./ai/normalize";
 import { findTemplateById, inferTemplateFromPrompt } from "./ai/templateCatalog";
 import { buildLayeredTemplateCarousel, type TemplateDraft } from "../../shared/templateEngine";
+import { assertHasCredits, debitCredits } from "./payments/credits";
 
 const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 const corsHandler = cors({ origin: true });
@@ -138,6 +139,15 @@ export const generateCarousel = onRequest(
             try {
                 const t0 = Date.now();
 
+                // Verifica se o usuário ainda tem o trial disponível
+                const userRef = db.collection("users").doc(uid);
+                const userSnap = await userRef.get();
+                const isTrial = userSnap.exists && userSnap.data()?.trialUsed === false;
+
+                if (!isTrial) {
+                    await assertHasCredits(uid, 1);
+                }
+
                 const openai = new OpenAI({
                     apiKey: OPENAI_API_KEY.value(),
                 });
@@ -198,6 +208,7 @@ export const generateCarousel = onRequest(
                 const docRef = await db.collection("projects").add({
                     ownerId: uid,
                     status: "ready",
+                    isTrial,
                     meta: safeMeta,
                     ai: {
                         generator: "generateCarousel:simple-v3",
@@ -216,6 +227,24 @@ export const generateCarousel = onRequest(
                 });
 
                 logger.info("firestore.add concluído", { projectId: docRef.id });
+
+                if (isTrial) {
+                    // Marca o trial como usado — operação atômica
+                    await userRef.update({ trialUsed: true });
+                    logger.info("trial usado", { uid });
+                } else {
+                    try {
+                        await debitCredits({
+                            uid,
+                            amount: 1,
+                            reason: "generate_carousel",
+                            projectId: docRef.id,
+                        });
+                    } catch (error) {
+                        await docRef.delete();
+                        throw error;
+                    }
+                }
 
                 res.status(200).json({
                     ok: true,

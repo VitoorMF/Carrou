@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import "./AppSidebar.css";
 import logo from "../../assets/page/landing/icon.svg";
 import token from "../../assets/icons/token_icon.svg";
+import { useUserData } from "../../lib/contexts/UserDataContext";
 
 type AppSidebarProps = {
     avatarUrl?: string | null;
@@ -35,9 +36,13 @@ function CoinIcon() {
     );
 }
 
-export function AppSidebar({ avatarUrl, initials = "U" }: AppSidebarProps) {
+export function AppSidebar(_props: AppSidebarProps = {}) {
     const navigate = useNavigate();
     const location = useLocation();
+    const userData = useUserData();
+
+    const avatarUrl = userData?.avatarUrl;
+    const initials = userData?.displayName?.[0]?.toUpperCase() ?? "U";
 
     const isDashboardActive = location.pathname === "/" || location.pathname.startsWith("/editor/");
     const isCreateActive = location.pathname.startsWith("/create");

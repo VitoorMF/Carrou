@@ -1,4 +1,5 @@
 import { buildEditorial3DTemplate } from "./templates/editorial3D";
+import { buildGlassEditorialTemplate } from "./templates/glassEditorial";
 import { buildLuxuryMinimalTemplate } from "./templates/luxuryMinimal";
 import { buildMicroBlogBoldTemplate } from "./templates/microBlogBold";
 import { buildStreetwearProTemplate } from "./templates/streetwearPro";
@@ -11,6 +12,7 @@ const TEMPLATE_BUILDERS: Record<TemplateId, TemplateBuilder> = {
     luxuryMinimal: buildLuxuryMinimalTemplate,
     microBlogBold: buildMicroBlogBoldTemplate,
     editorial3D: buildEditorial3DTemplate,
+    glassEditorial: buildGlassEditorialTemplate,
 };
 
 export function buildTemplateElements(params: TemplateBuildParams): CarouselElement[] {
