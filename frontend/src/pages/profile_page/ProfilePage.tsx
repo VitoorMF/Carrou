@@ -27,8 +27,7 @@ export default function ProfilePage() {
     const [specFocused, setSpecFocused] = useState(false);
     const [creditsBalance, setCreditsBalance] = useState(0);
     const [email, setEmail] = useState("");
-    const [userData, setUserData] = useState<UserData | null>(null);
-
+    const [, setUserData] = useState<UserData | null>(null);
 
     const [saving, setSaving] = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);

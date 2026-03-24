@@ -427,9 +427,6 @@ export default function EditPage() {
         goToSlide(activeSlideIndex - 1);
     }
 
-    function exportActiveSlide() {
-        void exportSingleSlide();
-    }
 
     async function exportSingleSlide() {
         if (!serverCarousel || isExportingAllSlides) {

@@ -3,4 +3,5 @@ export type UserData = {
     displayName?: string;
     specialization?: string;
     creditsBalance?: number;
+    trialUsed?: boolean;
 };
