@@ -17,6 +17,7 @@
     color: var(--cp-text);
     background: var(--cp-bg);
     box-sizing: border-box;
+    animation: fadeSlideUp 0.35s ease both;
 }
 
 .createHeader {
@@ -263,11 +264,19 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    transition: filter 0.12s ease, opacity 0.12s ease;
+    transition: filter 0.12s ease, opacity 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .primaryBtn:hover {
     filter: brightness(1.06);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(247, 126, 88, 0.36);
+}
+
+.primaryBtn:active:not(:disabled) {
+    transform: scale(0.97);
+    box-shadow: none;
+    filter: none;
 }
 
 .primaryBtn:disabled {
@@ -384,17 +393,24 @@
     padding: 12px;
     cursor: pointer;
     text-align: left;
-    transition: border-color 160ms ease, box-shadow 160ms ease;
+    transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    will-change: transform;
 }
 
 .layoutPreset:hover {
     border-color: #c8d0e0;
-    box-shadow: 0 4px 12px rgba(17, 24, 39, 0.08);
+    box-shadow: 0 6px 18px rgba(17, 24, 39, 0.1);
+    transform: translateY(-2px);
 }
 
 .layoutPreset.isActive {
     border-color: rgba(247, 126, 88, 0.6);
     box-shadow: 0 0 0 3px rgba(247, 126, 88, 0.12);
+    animation: activeNavPop 0.22s ease;
+}
+
+.layoutPreset:active:not(:disabled) {
+    transform: scale(0.97);
 }
 
 .layoutPreset:disabled {

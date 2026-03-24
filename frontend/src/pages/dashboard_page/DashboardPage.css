@@ -2,6 +2,7 @@
     min-height: 100vh;
     padding: 20px;
     background: #f1f2f4;
+    animation: fadeSlideUp 0.35s ease both;
 }
 
 .dashboard_surface {
@@ -50,10 +51,18 @@
     color: #ffffff;
     font-size: 13px;
     font-weight: 700;
+    transition: background-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
 }
 
 .token_chip:hover {
     background: #e66b4d;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(247, 126, 88, 0.35);
+}
+
+.token_chip:active {
+    transform: scale(0.96);
+    box-shadow: none;
 }
 
 .token_chip img {
@@ -71,10 +80,18 @@
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
+    transition: background-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
 }
 
 .create_button:hover {
     background: #000;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(17, 24, 39, 0.28);
+}
+
+.create_button:active {
+    transform: scale(0.96);
+    box-shadow: none;
 }
 
 .dashboard_toolbar {
@@ -166,16 +183,32 @@
     gap: 14px;
 }
 
+/* Cards aparecem escalonados */
+.projects_grid .project_card {
+    animation: fadeSlideUp 0.3s ease both;
+}
+.projects_grid .project_card:nth-child(1)  { animation-delay: 0ms; }
+.projects_grid .project_card:nth-child(2)  { animation-delay: 40ms; }
+.projects_grid .project_card:nth-child(3)  { animation-delay: 80ms; }
+.projects_grid .project_card:nth-child(4)  { animation-delay: 120ms; }
+.projects_grid .project_card:nth-child(5)  { animation-delay: 160ms; }
+.projects_grid .project_card:nth-child(6)  { animation-delay: 200ms; }
+.projects_grid .project_card:nth-child(n+7) { animation-delay: 240ms; }
+
 .project_card {
     border-radius: 12px;
     border: 1px solid #e6e8ee;
     background: #ffffff;
     padding: 12px;
     cursor: pointer;
+    transition: border-color 160ms ease, transform 200ms ease, box-shadow 200ms ease;
+    will-change: transform;
 }
 
 .project_card:hover {
-    border-color: #d2d6de;
+    border-color: #c8cdd9;
+    transform: translateY(-3px);
+    box-shadow: 0 10px 28px rgba(17, 24, 39, 0.1), 0 2px 8px rgba(17, 24, 39, 0.06);
 }
 
 .project_card_header {
@@ -249,6 +282,8 @@
     z-index: 5;
     display: grid;
     gap: 4px;
+    animation: popIn 0.18s ease both;
+    transform-origin: top right;
 }
 
 .options_item {
