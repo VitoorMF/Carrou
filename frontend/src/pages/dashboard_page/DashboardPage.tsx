@@ -1,5 +1,5 @@
 import "./DashboardPage.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { collection, onSnapshot, orderBy, query, where, deleteDoc, doc } from "firebase/firestore";
 import { db, storage } from "../../services/firebase";
@@ -59,6 +59,8 @@ export function DashboardPage() {
     const [error, setError] = useState<string | null>(null);
     const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
     const [searchValue, setSearchValue] = useState("");
+    const [showTrialSnack, setShowTrialSnack] = useState(false);
+    const trialSnackShown = useRef(false);
 
     useEffect(() => {
         if (!user) {
@@ -123,6 +125,14 @@ export function DashboardPage() {
     }, [user, authLoading]);
 
     useEffect(() => {
+        if (trialSnackShown.current || userData?.trialUsed !== false) return;
+        trialSnackShown.current = true;
+        setShowTrialSnack(true);
+        const t = setTimeout(() => setShowTrialSnack(false), 5000);
+        return () => clearTimeout(t);
+    }, [userData]);
+
+    useEffect(() => {
         if (!menuOpenId) {
             return;
         }
@@ -178,6 +188,7 @@ export function DashboardPage() {
     }
 
     return (
+        <>
                 <div className="dashboard">
                     <div className="dashboard_surface">
                         <header className="dashboard_header">
@@ -202,6 +213,22 @@ export function DashboardPage() {
                             </div>
                         </header>
 
+                        {(() => {
+                            const hasPhoto = !!userData?.avatarUrl;
+                            const hasSpec = !!userData?.specialization;
+                            const pct = userData == null ? null : (hasPhoto ? 50 : 0) + (hasSpec ? 50 : 0);
+                            if (pct == null || pct === 100) return null;
+                            return (
+                                <button className="profile_progress" onClick={() => navigate("/profile")}>
+                                    <span className="profile_progress_label">Perfil {pct}%</span>
+                                    <span className="profile_progress_bar">
+                                        <span className="profile_progress_fill" style={{ width: `${pct}%` }} />
+                                    </span>
+                                    <span className="profile_progress_cta">Completar →</span>
+                                </button>
+                            );
+                        })()}
+
                         <section className="dashboard_toolbar">
                             <div className="search_box">
                                 <span>⌕</span>
@@ -219,18 +246,26 @@ export function DashboardPage() {
                             {error && <p className="status_text error">{error}</p>}
 
                             {!loading && !error && filteredProjects.length === 0 && (
-                                <div className="empty_state">
-                                    <h3>Nenhum projeto encontrado</h3>
-                                    <p>
-                                        {projects.length === 0
-                                            ? "Você ainda não criou nenhum carrossel."
-                                            : "Tente outro termo de busca."}
-                                    </p>
-
-                                    {projects.length === 0 && (
-                                        <button onClick={() => navigate("/create")}>Criar primeiro projeto</button>
-                                    )}
-                                </div>
+                                projects.length === 0 && userData?.trialUsed === false ? (
+                                    <div className="empty_state empty_state_trial">
+                                        <div className="empty_trial_gift">🎁</div>
+                                        <h3>Crie seu primeiro carrossel grátis!</h3>
+                                        <p>Você tem uma geração gratuita esperando. Descreva seu conteúdo e a IA monta tudo pra você.</p>
+                                        <button onClick={() => navigate("/create")}>Começar agora — é grátis</button>
+                                    </div>
+                                ) : (
+                                    <div className="empty_state">
+                                        <h3>Nenhum projeto encontrado</h3>
+                                        <p>
+                                            {projects.length === 0
+                                                ? "Você ainda não criou nenhum carrossel."
+                                                : "Tente outro termo de busca."}
+                                        </p>
+                                        {projects.length === 0 && (
+                                            <button onClick={() => navigate("/create")}>Criar primeiro projeto</button>
+                                        )}
+                                    </div>
+                                )
                             )}
 
                             {!loading && !error && filteredProjects.length > 0 && (
@@ -350,5 +385,15 @@ export function DashboardPage() {
                         </section>
                     </div>
                 </div>
+
+            {showTrialSnack && (
+                <div className="trial_snackbar">
+                    <span>🎁 Você tem 1 carrossel grátis!</span>
+                    <button onClick={() => { setShowTrialSnack(false); navigate("/create"); }}>
+                        Criar agora →
+                    </button>
+                </div>
+            )}
+        </>
     );
 }

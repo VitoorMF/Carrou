@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type TouchEvent } from "react";
+import JSZip from "jszip";
 import { onSnapshot, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useParams } from "react-router-dom";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
@@ -45,6 +46,8 @@ export default function EditPage() {
     const persistTimeoutRef = useRef<number | null>(null);
     const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
     const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null);
+
+    const [swipeHint, setSwipeHint] = useState<{ direction: "left" | "right"; progress: number } | null>(null);
 
     const [projectName, setProjectName] = useState("Projeto sem nome");
     const [serverCarousel, setServerCarousel] = useState<Carousel | null>(null);
@@ -364,19 +367,30 @@ export default function EditPage() {
     }
 
     function handleStageTouchMove(event: TouchEvent<HTMLDivElement>) {
-        if (event.touches.length !== 2 || !pinchStartRef.current) {
+        if (event.touches.length === 2 && pinchStartRef.current) {
+            const distance = getTouchDistance(event.touches[0], event.touches[1]);
+            const scaleFactor = distance / pinchStartRef.current.distance;
+            const nextZoom = Math.min(
+                MAX_ZOOM,
+                Math.max(MIN_ZOOM, Number((pinchStartRef.current.zoom * scaleFactor).toFixed(2)))
+            );
+            setHasManualZoom(true);
+            setZoom((current) => (Math.abs(current - nextZoom) < 0.01 ? current : nextZoom));
             return;
         }
 
-        const distance = getTouchDistance(event.touches[0], event.touches[1]);
-        const scaleFactor = distance / pinchStartRef.current.distance;
-        const nextZoom = Math.min(
-            MAX_ZOOM,
-            Math.max(MIN_ZOOM, Number((pinchStartRef.current.zoom * scaleFactor).toFixed(2)))
-        );
+        if (event.touches.length === 1 && swipeStartRef.current && !selectedElementId) {
+            const touch = event.touches[0];
+            const deltaX = touch.clientX - swipeStartRef.current.x;
+            const deltaY = touch.clientY - swipeStartRef.current.y;
+            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 8) {
+                const progress = Math.min(Math.abs(deltaX) / 80, 1);
+                setSwipeHint({ direction: deltaX < 0 ? "right" : "left", progress });
+                return;
+            }
+        }
 
-        setHasManualZoom(true);
-        setZoom((current) => (Math.abs(current - nextZoom) < 0.01 ? current : nextZoom));
+        setSwipeHint(null);
     }
 
     function handleStageTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
@@ -390,6 +404,8 @@ export default function EditPage() {
         if (!start || event.changedTouches.length !== 1 || selectedElementId) {
             return;
         }
+
+        setSwipeHint(null);
 
         const touch = event.changedTouches[0];
         const deltaX = touch.clientX - start.x;
@@ -546,6 +562,23 @@ export default function EditPage() {
         }, delayMs);
     }
 
+    function friendlyImageError(message?: string): string {
+        if (!message) return "Não foi possível gerar a imagem. Tente novamente.";
+        if (message.includes("crédit") || message.includes("insuficiente") || message.includes("saldo"))
+            return "Créditos insuficientes. Adquira mais para continuar gerando imagens.";
+        if (message.includes("network") || message.includes("fetch") || message.includes("Failed to fetch"))
+            return "Sem conexão. Verifique sua internet e tente novamente.";
+        if (message.includes("auth") || message.includes("unauthenticated") || message.includes("autenticad"))
+            return "Sessão expirada. Recarregue a página e tente novamente.";
+        if (message.includes("timeout") || message.includes("AbortError") || message.includes("demorou"))
+            return "A geração demorou demais. Tente novamente.";
+        if (message.includes("prompt") || message.includes("content") || message.includes("policy"))
+            return "Prompt não permitido. Tente reformular a descrição da imagem.";
+        if (message.includes("rate") || message.includes("limit") || message.includes("quota"))
+            return "Muitas requisições. Aguarde alguns segundos e tente novamente.";
+        return "Não foi possível gerar a imagem. Tente novamente.";
+    }
+
     async function requestImageGeneration(projectIdValue: string, slideId: string, elementId: string) {
         const res = await fetch(GENERATE_IMAGE_ENDPOINT, {
             method: "POST",
@@ -595,9 +628,54 @@ export default function EditPage() {
         } catch (error) {
             console.error(error);
             updateEditableElement(selectedEditableElement.id, { status: "error" });
-            setErrorMessage("Não foi possível gerar a imagem.");
+            setErrorMessage(friendlyImageError(error instanceof Error ? error.message : undefined));
         } finally {
             setIsGeneratingImages(false);
+        }
+    }
+
+    async function shareAllSlides() {
+        if (!serverCarousel || serverCarousel.slides.length === 0) return;
+
+        setStatusMessage("Preparando para compartilhar...");
+        setErrorMessage(null);
+
+        try {
+            const token = await auth.currentUser?.getIdToken();
+            if (!token) throw new Error("Usuário não autenticado.");
+
+            const response = await fetch(EXPORT_ZIP_ENDPOINT, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ projectId }),
+            });
+
+            if (!response.ok) throw new Error(await response.text());
+
+            const zipBlob = await response.blob();
+            const zip = await JSZip.loadAsync(zipBlob);
+            const baseName = slugifyFileName(projectName || "carrossel") || "carrossel";
+
+            const files: File[] = await Promise.all(
+                Object.entries(zip.files)
+                    .filter(([, entry]) => !entry.dir)
+                    .map(async ([name, entry]) => {
+                        const blob = await entry.async("blob");
+                        return new File([blob], name, { type: "image/png" });
+                    })
+            );
+
+            if (!navigator.share || !navigator.canShare?.({ files })) {
+                downloadBlob(zipBlob, `${baseName}.zip`);
+                setStatusMessage("ZIP baixado.");
+                return;
+            }
+
+            await navigator.share({ files, title: projectName || "Carrossel" });
+        } catch (error) {
+            if (error instanceof Error && error.name === "AbortError") return;
+            console.error(error);
+            setErrorMessage("Não foi possível compartilhar os slides.");
         }
     }
 
@@ -790,6 +868,8 @@ export default function EditPage() {
                     onExportPNG={() => {
                         setStatusMessage(`Slide ${activeSlideIndex + 1} exportado em PNG.`);
                     }}
+                    onDismissError={() => setErrorMessage(null)}
+                    swipeHint={swipeHint}
                 />
 
                 <RightBar
@@ -821,6 +901,47 @@ export default function EditPage() {
                     renderInspectorElementIcon={renderInspectorElementIcon}
                 />
             </div>
+            <div className={`export_drawer ${mobilePanel === "export" ? "is_open" : ""}`}>
+                <span className="export_panel_title">Exportar slides</span>
+                <div className="export_panel_options">
+                    <button
+                        type="button"
+                        className="export_option_btn"
+                        onClick={exportAllSlides}
+                        disabled={isExportingAllSlides}
+                    >
+                        <span className="export_option_icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                        </span>
+                        <div className="export_option_info">
+                            <strong>{isExportingAllSlides ? "Gerando ZIP..." : "Baixar todos"}</strong>
+                            <span>Todos os slides em PNG dentro de um ZIP</span>
+                        </div>
+                    </button>
+                    <button
+                        type="button"
+                        className="export_option_btn"
+                        onClick={() => void shareAllSlides()}
+                    >
+                        <span className="export_option_icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                            </svg>
+                        </span>
+                        <div className="export_option_info">
+                            <strong>Compartilhar slide atual</strong>
+                            <span>Abre o menu de compartilhamento do celular</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
             <div
                 className={`mobile_panel_backdrop ${mobilePanel ? "is_visible" : ""}`}
                 onClick={() => setMobilePanel(null)}
@@ -847,11 +968,11 @@ export default function EditPage() {
                 </button>
                 <button
                     type="button"
-                    className="mobile_dock_button is_primary"
-                    onClick={exportActiveSlide}
+                    className={`mobile_dock_button is_primary ${mobilePanel === "export" ? "is_active" : ""}`}
+                    onClick={() => setMobilePanel((current) => current === "export" ? null : "export")}
                 >
                     <span className="mobile_dock_label">Exportar</span>
-                    <span className="mobile_dock_value">PNG</span>
+                    <span className="mobile_dock_value">Slides</span>
                 </button>
             </div>
             <input
@@ -865,10 +986,39 @@ export default function EditPage() {
     );
 }
 
+function resetStalePendingElements(carousel: Carousel): Carousel {
+    return {
+        ...carousel,
+        slides: carousel.slides.map((slide: any) => {
+            const resetLayer = (elements: any[] | undefined) =>
+                elements?.map((el: any) =>
+                    el?.status === "pending" && !el?.url && !el?.src
+                        ? { ...el, status: "idle" }
+                        : el
+                );
+            if (slide?.layers) {
+                return {
+                    ...slide,
+                    layers: {
+                        background: resetLayer(slide.layers.background),
+                        atmosphere: resetLayer(slide.layers.atmosphere),
+                        content: resetLayer(slide.layers.content),
+                        ui: resetLayer(slide.layers.ui),
+                    },
+                };
+            }
+            if (Array.isArray(slide?.elements)) {
+                return { ...slide, elements: resetLayer(slide.elements) };
+            }
+            return slide;
+        }),
+    };
+}
+
 function projectDocToCarousel(data: any): Carousel {
     // Fonte de verdade do editor: payload final de render persistido no backend.
     if (data?.renderCarousel?.meta && Array.isArray(data?.renderCarousel?.slides)) {
-        const fromRender = data.renderCarousel as Carousel;
+        const fromRender = resetStalePendingElements(data.renderCarousel as Carousel);
         logCarouselSignature("renderCarousel", fromRender);
         return fromRender;
     }

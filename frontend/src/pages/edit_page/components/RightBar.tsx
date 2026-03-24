@@ -96,7 +96,7 @@ export function RightBar({
 
                                                         <div className="credit_indicator">
                                                             <span className="credit_count">-1</span>
-                                                            <img src={token} alt="Crédito" />
+                                                            <img className="credit_icon" src={token} alt="Crédito" />
                                                         </div>
                                                     </div>
 
@@ -310,6 +310,7 @@ export function RightBar({
                     <div className="elements_more">+ {activeInspectorElements.length - 10} elementos</div>
                 )}
             </div>
+
         </aside>
     );
 }

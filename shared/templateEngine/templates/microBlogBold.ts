@@ -25,7 +25,6 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
     const surface = palette.bg;
     const textPrimary = palette.text;
     const textMuted = palette.muted;
-    const accent = palette.accent;
     const accent2 = palette.accent2;
     const heading = truncateText(copy.heading || "Você pensa no que vai dizer", imageLayout ? 74 : 80);
     const support = truncateText(

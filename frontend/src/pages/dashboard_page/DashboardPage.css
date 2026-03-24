@@ -2,7 +2,6 @@
     min-height: 100vh;
     padding: 20px;
     background: #f1f2f4;
-    animation: fadeSlideUp 0.35s ease both;
 }
 
 .dashboard_surface {
@@ -92,6 +91,175 @@
 .create_button:active {
     transform: scale(0.96);
     box-shadow: none;
+}
+
+.profile_progress {
+    margin-top: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 120ms ease;
+    animation: fadeSlideUp 0.35s ease both;
+    background: #f9fafb;
+    animation: shake 4s ease-in-out infinite;
+}
+
+@keyframes shake {
+    0% {
+        transform: translateX(0);
+    }
+
+    2% {
+        transform: translateX(-3px);
+    }
+
+    4% {
+        transform: translateX(3px);
+    }
+
+    6% {
+        transform: translateX(-3px);
+    }
+
+    8% {
+        transform: translateX(3px);
+    }
+
+    10%,
+    100% {
+        transform: translateX(0);
+    }
+}
+
+.profile_progress:hover {
+    background: #ebebed;
+}
+
+.profile_progress_label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #111827;
+    white-space: nowrap;
+}
+
+.profile_progress_bar {
+    width: 64px;
+    height: 3px;
+    border-radius: 999px;
+    background: #e5e7eb;
+    overflow: hidden;
+}
+
+.profile_progress_fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: #f77e58;
+    transition: width 0.4s ease;
+}
+
+.profile_progress_cta {
+    font-size: 11px;
+    font-weight: 600;
+    color: #e66b4d;
+    white-space: nowrap;
+}
+
+.trial_snackbar {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #111827;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 14px 12px 20px;
+    border-radius: 12px;
+    box-shadow: 0 8px 28px rgba(17, 24, 39, 0.22);
+    white-space: nowrap;
+    z-index: 9999;
+    animation: snackbar_in 0.22s ease, snackbar_out 0.22s ease 4.7s forwards;
+}
+
+.trial_snackbar button {
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: none;
+    background: #f77e58;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: filter 120ms ease;
+}
+
+.trial_snackbar button:hover {
+    filter: brightness(1.1);
+}
+
+@keyframes snackbar_in {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+@keyframes snackbar_out {
+    from {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateX(-50%) translateY(12px);
+    }
+}
+
+.empty_state_trial {
+    padding: 48px 22px;
+}
+
+.empty_trial_gift {
+    font-size: 52px;
+    margin-bottom: 12px;
+    animation: popIn 0.4s ease both;
+}
+
+.empty_state_trial h3 {
+    font-size: 22px;
+}
+
+.empty_state_trial button {
+    height: 40px;
+    padding: 0 20px;
+    font-size: 14px;
+    background: #f77e58;
+    border-color: #f77e58;
+    color: #fff;
+    transition: filter 120ms ease, transform 120ms ease;
+}
+
+.empty_state_trial button:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
 }
 
 .dashboard_toolbar {
@@ -187,13 +355,34 @@
 .projects_grid .project_card {
     animation: fadeSlideUp 0.3s ease both;
 }
-.projects_grid .project_card:nth-child(1)  { animation-delay: 0ms; }
-.projects_grid .project_card:nth-child(2)  { animation-delay: 40ms; }
-.projects_grid .project_card:nth-child(3)  { animation-delay: 80ms; }
-.projects_grid .project_card:nth-child(4)  { animation-delay: 120ms; }
-.projects_grid .project_card:nth-child(5)  { animation-delay: 160ms; }
-.projects_grid .project_card:nth-child(6)  { animation-delay: 200ms; }
-.projects_grid .project_card:nth-child(n+7) { animation-delay: 240ms; }
+
+.projects_grid .project_card:nth-child(1) {
+    animation-delay: 0ms;
+}
+
+.projects_grid .project_card:nth-child(2) {
+    animation-delay: 40ms;
+}
+
+.projects_grid .project_card:nth-child(3) {
+    animation-delay: 80ms;
+}
+
+.projects_grid .project_card:nth-child(4) {
+    animation-delay: 120ms;
+}
+
+.projects_grid .project_card:nth-child(5) {
+    animation-delay: 160ms;
+}
+
+.projects_grid .project_card:nth-child(6) {
+    animation-delay: 200ms;
+}
+
+.projects_grid .project_card:nth-child(n+7) {
+    animation-delay: 240ms;
+}
 
 .project_card {
     border-radius: 12px;

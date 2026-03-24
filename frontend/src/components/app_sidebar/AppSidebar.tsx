@@ -70,10 +70,11 @@ export function AppSidebar(_props: AppSidebarProps = {}) {
                     type="button"
                     className={`sidebar_nav_item ${isCreateActive ? "active" : ""}`}
                     onClick={() => navigate("/create")}
-                    title="Criar"
+                    title={userData?.trialUsed === false ? "Criar — 1 grátis disponível" : "Criar"}
                     aria-label="Criar"
                 >
                     <PencilIcon />
+                    {userData?.trialUsed === false && <span className="sidebar_trial_badge" />}
                 </button>
 
                 <button
@@ -91,7 +92,7 @@ export function AppSidebar(_props: AppSidebarProps = {}) {
                 type="button"
                 className={`sidebar_footer sidebar_avatar_button ${isProfileActive ? "active" : ""}`}
                 onClick={() => navigate("/profile")}
-                title="Perfil"
+                title={userData?.specialization === "" ? "Complete seu perfil" : "Perfil"}
                 aria-label="Perfil"
             >
                 {avatarUrl ? (
@@ -99,6 +100,7 @@ export function AppSidebar(_props: AppSidebarProps = {}) {
                 ) : (
                     <div className="sidebar_avatar">{initials}</div>
                 )}
+                {userData?.specialization === "" && <span className="sidebar_profile_badge" />}
             </button>
         </aside>
     );

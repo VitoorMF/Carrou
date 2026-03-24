@@ -17,7 +17,6 @@
     color: var(--cp-text);
     background: var(--cp-bg);
     box-sizing: border-box;
-    animation: fadeSlideUp 0.35s ease both;
 }
 
 .createHeader {
@@ -340,6 +339,33 @@
     to {
         transform: rotate(360deg);
     }
+}
+
+.create_snackbar {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: #fca5a5;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 20px;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(17, 24, 39, 0.22);
+    white-space: nowrap;
+    z-index: 9999;
+    animation: snackbar_in 0.22s ease, snackbar_out 0.22s ease 3.7s forwards;
+}
+
+@keyframes snackbar_in {
+    from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes snackbar_out {
+    from { opacity: 1; transform: translateX(-50%) translateY(0); }
+    to   { opacity: 0; transform: translateX(-50%) translateY(12px); }
 }
 
 .errorText {
@@ -884,8 +910,7 @@
         align-items: flex-start;
     }
 
-    .headerRight,
-    .pill {
+    .headerRight {
         width: 100%;
     }
 }

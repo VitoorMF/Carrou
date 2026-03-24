@@ -247,6 +247,30 @@
     box-shadow: 0 0 0 3px rgba(247, 126, 88, 0.12);
 }
 
+.spec_input_wrap {
+    position: relative;
+}
+
+.spec_input_wrap input {
+    width: 100%;
+}
+
+.spec_badge {
+    position: absolute;
+    right: 10px;
+    top: 25%;
+    transform: translateY(-50%);
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #facc15;
+    color: #78350f;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+    animation: fadeSlideUp 0.2s ease both;
+}
+
 .profile_form input[readonly] {
     background: #f3f4f6;
     color: #6b7280;
@@ -332,13 +356,27 @@
 }
 
 @keyframes snackbar_in {
-    from { opacity: 0; transform: translateX(-50%) translateY(12px); }
-    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
 }
 
 @keyframes snackbar_out {
-    from { opacity: 1; transform: translateX(-50%) translateY(0); }
-    to   { opacity: 0; transform: translateX(-50%) translateY(12px); }
+    from {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateX(-50%) translateY(12px);
+    }
 }
 
 @media (max-width: 1024px) {

@@ -701,7 +701,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(
         }
 
         return (
-            <div className="canvas-shell">
+            <div className="canvas-shell" onClick={(e) => { if (e.target === e.currentTarget) onSelectElement?.(null); }}>
                 <div
                     className="canvas-viewport"
                     style={{ width: DOC_W * clampedZoom, height: DOC_H * clampedZoom }}

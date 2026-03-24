@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import "./CreatePage.css";
-import { auth, db } from "../../services/firebase";
+import { db } from "../../services/firebase";
 import { useNavigate } from "react-router-dom";
 import { generateCarousel } from "../../services/functions";
-import { signInAnonymously } from "firebase/auth";
 
 import { useAuth } from "../../lib/hooks/useAuth";
 import { onSnapshot, doc } from "firebase/firestore";
@@ -28,16 +27,20 @@ const IMPROVE_PROMPT_ENDPOINT = USE_FIREBASE_EMULATORS
     ? "http://127.0.0.1:5001/carrosselize/us-central1/improvePrompt"
     : "https://us-central1-carrosselize.cloudfunctions.net/improvePrompt";
 
-async function ensureAuth() {
-    if (auth.currentUser) {
-        await auth.currentUser.getIdToken(true);
-        return auth.currentUser;
-    }
 
-    const cred = await signInAnonymously(auth);
-    await cred.user.getIdToken(true);
-
-    return cred.user;
+function friendlyError(message?: string): string {
+    if (!message) return "Erro ao gerar carrossel. Tente novamente.";
+    if (message.includes("network") || message.includes("fetch") || message.includes("Failed to fetch"))
+        return "Sem conexão. Verifique sua internet e tente novamente.";
+    if (message.includes("auth") || message.includes("unauthenticated") || message.includes("Usuário não autenticado"))
+        return "Sessão expirada. Recarregue a página e tente novamente.";
+    if (message.includes("Créditos insuficientes"))
+        return "Créditos insuficientes. Adquira mais créditos para continuar.";
+    if (message.includes("timeout") || message.includes("AbortError") || message.includes("demorou"))
+        return "A geração demorou demais. Tente um prompt mais curto.";
+    if (message.includes("prompt") || message.includes("content") || message.includes("policy"))
+        return "Prompt não permitido. Tente reformular o conteúdo.";
+    return "Erro ao gerar carrossel. Tente novamente.";
 }
 
 export default function CreatePage() {
@@ -47,6 +50,12 @@ export default function CreatePage() {
     const [layout, setLayout] = useState<TemplateId | null>(null);
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!err) return;
+        const t = setTimeout(() => setErr(null), 4000);
+        return () => clearTimeout(t);
+    }, [err]);
     const navigate = useNavigate();
     const [optimizing, setOptimizing] = useState(false);
     const [userData, setUserData] = useState<UserData | null>(null);
@@ -114,8 +123,6 @@ export default function CreatePage() {
             setLoading(true);
             setErr(null);
 
-            await ensureAuth();
-
             const fallbackTemplate = findTemplateById(DEFAULT_TEMPLATE_ID);
             const { projectId } = await generateCarousel({
                 prompt: prompt.trim(),
@@ -126,7 +133,7 @@ export default function CreatePage() {
             navigate(`/editor/${projectId}`);
         } catch (e: any) {
             console.error("ERRO handleCreate:", e);
-            setErr(e?.message ?? "Erro ao gerar carrossel");
+            setErr(friendlyError(e?.message));
         } finally {
             setLoading(false);
         }
@@ -136,155 +143,159 @@ export default function CreatePage() {
 
     // CreatePage.tsx (somente o JSX/HTML da página)
     return (
-                <section className="createPage">
-                    <header className="createHeader">
-                        <div className="headerLeft">
-                            <h1 className="title">Criar carrossel</h1>
-                            <p className="subtitle">Escolha um layout pronto, gere e ajuste só os campos no editor.</p>
+        <>
+        <section className="createPage">
+            <header className="createHeader">
+                <div className="headerLeft">
+                    <h1 className="title">Criar carrossel</h1>
+                    <p className="subtitle">Escolha um layout pronto, gere e ajuste só os campos no editor.</p>
+                </div>
+
+                <div className="headerRight">
+                    {userData?.trialUsed === false ? (
+                        <div className="pill creditsPill">
+                            <span className="pillText">🎁 1 carrossel grátis</span>
+                        </div>
+                    ) : (
+                        <div className="pill creditsPill" onClick={() => navigate("/plans")}>
+                            <img src={token} alt="Créditos" />
+                            <span className="pillText">{userData?.creditsBalance ?? 0}</span>
+                        </div>
+                    )}
+                </div>
+            </header>
+
+            <div className="createGrid">
+                {/* LEFT: Prompt card */}
+                <div className="card promptCard">
+                    <div className="cardTop">
+                        <div className="cardTitleWrap">
+                            <h2 className="cardTitle">Prompt</h2>
+                            <p className="cardHint">Seja específico: tema, público e promessa.</p>
                         </div>
 
-                        <div className="headerRight">
-                            {userData?.trialUsed === false ? (
-                                <div className="pill creditsPill">
-                                    <span className="pillText">🎁 1 carrossel grátis</span>
-                                </div>
-                            ) : (
-                                <div className="pill creditsPill" onClick={() => navigate("/plans")}>
-                                    <img src={token} alt="Créditos" />
-                                    <span className="pillText">{userData?.creditsBalance ?? 0}</span>
-                                </div>
-                            )}
+                        <div className="miniActions">
+                            <button
+                                type="button"
+                                className="ghostBtn"
+                                onClick={() => setPrompt("")}
+                                disabled={!prompt.trim() || loading}
+                                title="Limpar prompt"
+                            >
+                                Limpar
+                            </button>
+
+                            <button
+                                type="button"
+                                className="ghostBtn blackBtn"
+                                onClick={() =>
+                                    setPrompt(prompts[Math.floor(Math.random() * prompts.length)])
+                                }
+                                disabled={loading}
+                                title="Exemplo"
+                            >
+                                Exemplo
+                            </button>
                         </div>
-                    </header>
+                    </div>
 
-                    <div className="createGrid">
-                        {/* LEFT: Prompt card */}
-                        <div className="card promptCard">
-                            <div className="cardTop">
-                                <div className="cardTitleWrap">
-                                    <h2 className="cardTitle">Prompt</h2>
-                                    <p className="cardHint">Seja específico: tema, público e promessa.</p>
-                                </div>
-
-                                <div className="miniActions">
-                                    <button
-                                        type="button"
-                                        className="ghostBtn"
-                                        onClick={() => setPrompt("")}
-                                        disabled={!prompt.trim() || loading}
-                                        title="Limpar prompt"
-                                    >
-                                        Limpar
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="ghostBtn blackBtn"
-                                        onClick={() =>
-                                            setPrompt(prompts[Math.floor(Math.random() * prompts.length)])
-                                        }
-                                        disabled={loading}
-                                        title="Exemplo"
-                                    >
-                                        Exemplo
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="textareaShell">
-                                <textarea
-                                    className="textarea"
-                                    value={prompt}
-                                    onChange={(e) => setPrompt(e.target.value)}
-                                    placeholder="Ex: Faça um carrossel sobre..."
-                                    disabled={loading}
-                                />
-                                <div className="textareaFooter">
-                                    <span className="charCount">{prompt.length} caracteres</span>
-
-                                </div>
-                            </div>
-
-                            <div className="primaryActions">
-                                <button
-                                    className="primaryBtn"
-                                    onClick={handleCreate}
-                                    disabled={
-                                        loading ||
-                                        !prompt.trim() ||
-                                        (userData?.trialUsed !== false && (userData?.creditsBalance ?? 0) === 0)
-                                    }
-                                >
-                                    {loading ? (
-                                        <>
-                                            <span className="spinner" />
-                                            Gerando…
-                                        </>
-                                    ) : userData?.trialUsed !== false && (userData?.creditsBalance ?? 0) === 0 ? (
-                                        <span>Sem créditos</span>
-                                    ) : userData?.trialUsed === false ? (
-                                        <span>Gerar carrossel grátis</span>
-                                    ) : (
-                                        <div className="btnLabel">
-                                            <span>Gerar carrossel</span>
-                                            <div className="creditsCost">
-                                                <span>-1</span>
-                                                <img src={token} alt="Créditos" />
-                                            </div>
-                                        </div>
-                                    )}
-                                </button>
-
-                                <button
-                                    type="button"
-                                    className="secondaryBtn"
-                                    onClick={handleImprovePrompt}
-                                    disabled={loading || optimizing || !prompt.trim()}
-                                >
-                                    {optimizing ? "Otimizando..." : "Otimizar prompt"}
-                                </button>
-                            </div>
-
-                            {err && <p className="errorText">{err}</p>}
-                        </div>
-
-                        {/* RIGHT: Settings card */}
-                        <div className="card settingsCard">
-                            <div className="cardTop">
-                                <div className="cardTitleWrap">
-                                    <h2 className="cardTitle">Layouts</h2>
-                                    <p className="cardHint">Escolha um preset visual e ajuste só o conteúdo no editor.</p>
-                                </div>
-                            </div>
-
-                            <div className="settingsList">
-                                <div className="settingGroup">
-
-                                    <div className="layoutPresets">
-                                        {TEMPLATE_CATALOG.map((preset) => (
-                                            <button
-                                                type="button"
-                                                key={preset.id}
-                                                className={`layoutPreset ${layout === preset.id ? "isActive" : ""}`}
-                                                onClick={() => setLayout(preset.id)}
-                                                disabled={loading}
-                                                title={preset.description}
-                                            >
-                                                <TemplatePreview templateId={preset.id} />
-                                                <span className="layoutPresetLabel">{preset.label}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
+                    <div className="textareaShell">
+                        <textarea
+                            className="textarea"
+                            value={prompt}
+                            onChange={(e) => setPrompt(e.target.value)}
+                            placeholder="Ex: Faça um carrossel sobre..."
+                            disabled={loading}
+                        />
+                        <div className="textareaFooter">
+                            <span className="charCount">{prompt.length} caracteres</span>
 
                         </div>
                     </div>
-                </section>
+
+                    <div className="primaryActions">
+                        <button
+                            className="primaryBtn"
+                            onClick={handleCreate}
+                            disabled={
+                                loading ||
+                                !prompt.trim() ||
+                                (userData?.trialUsed !== false && (userData?.creditsBalance ?? 0) === 0)
+                            }
+                        >
+                            {loading ? (
+                                <>
+                                    <span className="spinner" />
+                                    Gerando…
+                                </>
+                            ) : userData?.trialUsed !== false && (userData?.creditsBalance ?? 0) === 0 ? (
+                                <span>Sem créditos</span>
+                            ) : userData?.trialUsed === false ? (
+                                <span>Gerar carrossel grátis</span>
+                            ) : (
+                                <div className="btnLabel">
+                                    <span>Gerar carrossel</span>
+                                    <div className="creditsCost">
+                                        <span>-1</span>
+                                        <img src={token} alt="Créditos" />
+                                    </div>
+                                </div>
+                            )}
+                        </button>
+
+                        <button
+                            type="button"
+                            className="secondaryBtn"
+                            onClick={handleImprovePrompt}
+                            disabled={loading || optimizing || !prompt.trim()}
+                        >
+                            {optimizing ? "Otimizando..." : "Otimizar prompt"}
+                        </button>
+                    </div>
+
+                </div>
+
+                {/* RIGHT: Settings card */}
+                <div className="card settingsCard">
+                    <div className="cardTop">
+                        <div className="cardTitleWrap">
+                            <h2 className="cardTitle">Layouts</h2>
+                            <p className="cardHint">Escolha um preset visual e ajuste só o conteúdo no editor.</p>
+                        </div>
+                    </div>
+
+                    <div className="settingsList">
+                        <div className="settingGroup">
+
+                            <div className="layoutPresets">
+                                {TEMPLATE_CATALOG.map((preset) => (
+                                    <button
+                                        type="button"
+                                        key={preset.id}
+                                        className={`layoutPreset ${layout === preset.id ? "isActive" : ""}`}
+                                        onClick={() => setLayout(preset.id)}
+                                        disabled={loading}
+                                        title={preset.description}
+                                    >
+                                        <TemplatePreview templateId={preset.id} />
+                                        <span className="layoutPresetLabel">{preset.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+            {err && (
+                <div className="create_snackbar">
+                    <span>⚠ {err}</span>
+                </div>
+            )}
+        </>
     );
-
-
-
 }
 
 function TemplatePreview({ templateId }: { templateId: TemplateId }) {

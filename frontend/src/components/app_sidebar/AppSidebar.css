@@ -55,6 +55,7 @@
 }
 
 .sidebar_nav_item {
+    position: relative;
     width: 44px;
     height: 44px;
     border: 1px solid rgba(255, 255, 255, 0.16);
@@ -66,6 +67,29 @@
     place-items: center;
     transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
     will-change: transform;
+}
+
+.sidebar_trial_badge {
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #facc15;
+    animation: trialPulse 2s ease-in infinite;
+}
+
+@keyframes trialPulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(247, 126, 88, 0.7);
+    }
+
+    50% {
+        box-shadow: 0 0 0 5px rgba(247, 126, 88, 0);
+    }
 }
 
 .sidebar_nav_item svg {
@@ -100,7 +124,19 @@
     margin-top: auto;
 }
 
+.sidebar_profile_badge {
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #facc15;
+    animation: trialPulse 2s ease-in infinite;
+}
+
 .sidebar_avatar_button {
+    position: relative;
     height: 50px;
     border: 1px solid transparent;
     background: transparent;
@@ -112,7 +148,6 @@
 
 .sidebar_avatar_button:hover {
     transform: scale(1.07);
-    box-shadow: 0 0 0 3px rgba(247, 126, 88, 0.3);
 }
 
 .sidebar_avatar_button:active {

@@ -25,7 +25,7 @@ export type InspectorElementEntry = {
 
 export type EditableElementType = "text" | "image" | "backgroundImage";
 
-export type MobilePanel = "slides" | "inspector" | null;
+export type MobilePanel = "slides" | "inspector" | "export" | null;
 
 export type PaletteKey = "bg" | "text" | "muted" | "accent" | "accent2";
 

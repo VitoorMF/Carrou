@@ -388,6 +388,34 @@ export const generateImageForElement = onRequest(
                 return res.json({ ok: true, src });
             } catch (err: any) {
                 logger.error("generateImageForElement error", err);
+
+                // Reseta status "pending" para não travar o elemento para sempre
+                try {
+                    const failedRef = findElementRef(slides[sIndex], elementId);
+                    if (failedRef) {
+                        writeElement(slides[sIndex], failedRef, {
+                            ...failedRef.elements[failedRef.eIndex],
+                            status: "idle",
+                        });
+                    }
+                    if (sharedPair) {
+                        const failedPairRef = findElementRef(slides[sharedPair.pairSlideIndex], sharedPair.pairEl.id);
+                        if (failedPairRef) {
+                            writeElement(slides[sharedPair.pairSlideIndex], failedPairRef, {
+                                ...failedPairRef.elements[failedPairRef.eIndex],
+                                status: "idle",
+                            });
+                        }
+                    }
+                    await ref.update({
+                        ...(renderCarousel ? { renderCarousel: { ...renderCarousel, slides } } : {}),
+                        slides,
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                } catch (resetErr) {
+                    logger.error("generateImageForElement: erro ao resetar status pending", resetErr);
+                }
+
                 return res.status(500).json({ ok: false, error: err?.message ?? "Unknown error" });
             }
         });
