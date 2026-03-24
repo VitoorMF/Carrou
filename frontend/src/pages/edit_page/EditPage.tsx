@@ -428,42 +428,6 @@ export default function EditPage() {
     }
 
 
-    async function exportSingleSlide() {
-        if (!serverCarousel || isExportingAllSlides) {
-            return;
-        }
-
-        try {
-            const token = await auth.currentUser?.getIdToken();
-            if (!token) {
-                throw new Error("Usuário não autenticado.");
-            }
-
-            setErrorMessage(null);
-            setStatusMessage(`Exportando slide ${activeSlideIndex + 1}...`);
-
-            const response = await fetch(EXPORT_ZIP_ENDPOINT, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ projectId, slideIndex: activeSlideIndex }),
-            });
-
-            if (!response.ok) {
-                throw new Error(await response.text());
-            }
-
-            const blob = await response.blob();
-            const fileName = slugifyFileName(projectName || "carrossel") || "carrossel";
-            downloadBlob(blob, `${fileName}-slide-${String(activeSlideIndex + 1).padStart(2, "0")}.png`);
-            setStatusMessage(`Slide ${activeSlideIndex + 1} exportado.`);
-        } catch (error) {
-            console.error(error);
-            setErrorMessage("Não foi possível exportar o slide.");
-        }
-    }
 
     async function exportAllSlides() {
         if (!serverCarousel || serverCarousel.slides.length === 0 || isExportingAllSlides) {
