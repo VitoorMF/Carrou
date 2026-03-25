@@ -47,6 +47,7 @@ export default function EditPage() {
     const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
     const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null);
     const isSwipingRef = useRef(false);
+    const hasInitializedCarouselRef = useRef(false);
 
     const [swipeHint, setSwipeHint] = useState<{ direction: "left" | "right"; progress: number } | null>(null);
 
@@ -208,7 +209,9 @@ export default function EditPage() {
                 const data = snap.data();
                 setProjectName(data?.meta?.title ?? "Projeto sem nome");
 
-                const raw = projectDocToCarousel(data);
+                const isFirstLoad = !hasInitializedCarouselRef.current;
+                hasInitializedCarouselRef.current = true;
+                const raw = projectDocToCarousel(data, { resetPending: isFirstLoad });
                 setOriginalPalette(extractOriginalPalette(data, raw));
                 updateSlidesFromCarousel(raw);
                 setIsLoadingProject(false);
@@ -985,10 +988,12 @@ function resetStalePendingElements(carousel: Carousel): Carousel {
     };
 }
 
-function projectDocToCarousel(data: any): Carousel {
+function projectDocToCarousel(data: any, opts?: { resetPending?: boolean }): Carousel {
     // Fonte de verdade do editor: payload final de render persistido no backend.
     if (data?.renderCarousel?.meta && Array.isArray(data?.renderCarousel?.slides)) {
-        const fromRender = resetStalePendingElements(data.renderCarousel as Carousel);
+        const fromRender = opts?.resetPending
+            ? resetStalePendingElements(data.renderCarousel as Carousel)
+            : (data.renderCarousel as Carousel);
         logCarouselSignature("renderCarousel", fromRender);
         return fromRender;
     }
