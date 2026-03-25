@@ -13,12 +13,24 @@ export function useKonvaImage(url?: string) {
         let cancelled = false;
 
         const image = new window.Image();
+        image.crossOrigin = "anonymous";
         image.src = targetUrl;
         image.onload = () => {
             if (!cancelled) setImg(image);
         };
         image.onerror = () => {
-            if (!cancelled) setImg(null);
+            // CORS attempt failed — retry without crossOrigin so the image
+            // still renders on screen (canvas will be tainted for this element,
+            // but that's acceptable for non-exportable images like avatars).
+            if (cancelled) return;
+            const fallback = new window.Image();
+            fallback.src = targetUrl;
+            fallback.onload = () => {
+                if (!cancelled) setImg(fallback);
+            };
+            fallback.onerror = () => {
+                if (!cancelled) setImg(null);
+            };
         };
 
         return () => {

@@ -20,7 +20,7 @@ type RightBarProps = {
     onGenerateSelectedImage: () => void;
     onOpenImagePicker: () => void;
     onRemoveSelectedImage: () => void | Promise<void>;
-    onElementCoordinateChange: (axis: "x" | "y", value: string) => void;
+    onElementCoordinateChange: (axis: "x" | "y" | "w" | "h" | "fontSize", value: string) => void;
     onApplyPalettePreset: (palette: EditorPalette, presetId: string) => void;
     onToggleAdvancedPalette: () => void;
     onPaletteChange: (key: PaletteKey, value: string) => void;
@@ -69,6 +69,20 @@ export function RightBar({
                                     onChange={(event) => onTextContentChange(event.target.value)}
                                 />
                             </>
+                        )}
+
+                        {editableSelectedElement.type === "text" && editableSelectedElement.fontSize != null && (
+                            <div className="editor_grid editor_grid_single">
+                                <label className="editor_field">
+                                    <span>Fonte</span>
+                                    <input
+                                        type="number"
+                                        min={8}
+                                        value={Math.round(Number(editableSelectedElement.fontSize))}
+                                        onChange={(event) => onElementCoordinateChange("fontSize", event.target.value)}
+                                    />
+                                </label>
+                            </div>
                         )}
 
                         {(editableSelectedElement.type === "image"
@@ -137,6 +151,30 @@ export function RightBar({
                                 </div>
                             )}
 
+                        {editableSelectedElement.w != null && editableSelectedElement.h != null && (
+                            <div className="editor_grid editor_grid_dimensions">
+                                <label className="editor_field">
+                                    <span>W</span>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        value={Math.round(Number(editableSelectedElement.w))}
+                                        onChange={(event) => onElementCoordinateChange("w", event.target.value)}
+                                    />
+                                </label>
+
+                                <label className="editor_field">
+                                    <span>H</span>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        value={Math.round(Number(editableSelectedElement.h))}
+                                        onChange={(event) => onElementCoordinateChange("h", event.target.value)}
+                                    />
+                                </label>
+                            </div>
+                        )}
+
                         <div className="editor_grid editor_grid_coordinates">
                             <label className="editor_field">
                                 <span>X</span>
@@ -156,7 +194,6 @@ export function RightBar({
                                 />
                             </label>
                         </div>
-                        <p className="mobile_coordinates_hint">Posição fina disponível no desktop.</p>
                     </div>
                 </div>
             ) : (

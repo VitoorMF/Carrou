@@ -708,17 +708,12 @@ body,
     color: #101828;
 }
 
-.inspector_mobile_summary p,
-.mobile_coordinates_hint {
+.inspector_mobile_summary p {
     margin: 0;
     font-size: 12px;
     font-weight: 600;
     line-height: 1.5;
     color: #667085;
-}
-
-.mobile_coordinates_hint {
-    display: none;
 }
 
 .field_caption {
@@ -748,6 +743,10 @@ body,
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
     min-width: 0;
+}
+
+.editor_grid_single {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .editor_field {
@@ -1122,15 +1121,10 @@ body,
     }
 
     .inspector_mobile_summary,
-    .mobile_coordinates_hint,
     .mobile_swipe_hint,
     .mobile_panel_backdrop,
     .mobile_editor_dock {
         display: none;
-    }
-
-    .editor_grid_coordinates {
-        display: grid;
     }
 }
 
@@ -1347,14 +1341,6 @@ body,
     .image_prompt_hint {
         border-radius: 14px;
         padding: 12px;
-    }
-
-    .editor_grid_coordinates {
-        display: none;
-    }
-
-    .mobile_coordinates_hint {
-        display: block;
     }
 
     .elements_list {

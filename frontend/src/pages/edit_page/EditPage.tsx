@@ -1,31 +1,26 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type TouchEvent } from "react";
+import { flushSync, } from "react-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { onSnapshot, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useParams } from "react-router-dom";
-import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { type CanvasRef } from "../../editor/canvas/Canvas";
 import { type Carousel } from "../../editor/canvas/types";
 import { useAuth } from "../../lib/hooks/useAuth";
 import { applyProfileCardIdentity } from "../../lib/applyProfileCardIdentity";
 import { router } from "../../router";
-import { auth, db, storage } from "../../services/firebase";
+import { db } from "../../services/firebase";
 import { findTemplateById } from "../../templates/templateCatalog";
 import type { UserData } from "../../types/userData";
 import {
-    DOC_H,
-    DOC_W,
-    EXPORT_ZIP_ENDPOINT,
-    GENERATE_IMAGE_ENDPOINT,
-    MAX_ZOOM,
-    MIN_ZOOM,
-    STAGE_PADDING,
     TEMPLATE_PALETTE_PRESETS,
-    ZOOM_STEP,
 } from "./constants";
 import { CanvasArea } from "./components/CanvasArea";
 import { EditHeader } from "./components/EditHeader";
 import { LeftBar } from "./components/LeftBar";
 import { RightBar } from "./components/RightBar";
+import { useImageEditor } from "./hooks/useImageEditor";
+import { useSwipeNavigation } from "./hooks/useSwipeNavigation";
+import { useZoom } from "./hooks/useZoom";
 import type {
     EditableElementType,
     EditorElement,
@@ -37,19 +32,52 @@ import type {
 } from "./types";
 import "./EditPage.css";
 
+// ── Image pre-loading helpers ─────────────────────────────────────────────────
+
+function collectImageUrls(slides: EditorSlide[]): string[] {
+    const urls = new Set<string>();
+    for (const slide of slides) {
+        for (const el of slide.elements) {
+            if (el.type === "image" || el.type === "backgroundImage" || el.type === "noise") {
+                const url = (el.src ?? el.url) as string | undefined;
+                if (url) urls.add(url);
+            }
+            if (el.type === "profileCard") {
+                const avatarSrc = (el as any).user?.avatarSrc as string | undefined;
+                if (avatarSrc) urls.add(avatarSrc);
+            }
+        }
+    }
+    return Array.from(urls);
+}
+
+function preloadImagesForExport(urls: string[]): Promise<void[]> {
+    const promises = urls.map(
+        (url) =>
+            new Promise<void>((resolve) => {
+                const img = new window.Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => resolve();
+                img.onerror = () => {
+                    // CORS failed — retry without crossOrigin so browser caches it
+                    const fallback = new window.Image();
+                    fallback.onload = () => resolve();
+                    fallback.onerror = () => resolve(); // fail silently
+                    fallback.src = url;
+                };
+                img.src = url;
+            })
+    );
+    return Promise.all(promises);
+}
+
 export default function EditPage() {
     const { projectId } = useParams();
     const { user } = useAuth();
     const canvasRef = useRef<CanvasRef>(null);
     const stageContainerRef = useRef<HTMLDivElement | null>(null);
-    const imagePickerRef = useRef<HTMLInputElement | null>(null);
     const persistTimeoutRef = useRef<number | null>(null);
-    const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
-    const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null);
-    const isSwipingRef = useRef(false);
     const hasInitializedCarouselRef = useRef(false);
-
-    const [swipeHint, setSwipeHint] = useState<{ direction: "left" | "right"; progress: number } | null>(null);
 
     const [projectName, setProjectName] = useState("Projeto sem nome");
     const [serverCarousel, setServerCarousel] = useState<Carousel | null>(null);
@@ -60,17 +88,16 @@ export default function EditPage() {
     const [activeSlideId, setActiveSlideId] = useState(slides[0].id);
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
 
-    const [zoom, setZoom] = useState(0.56);
-    const [hasManualZoom, setHasManualZoom] = useState(false);
     const [mobilePanel, setMobilePanel] = useState<MobilePanel>(null);
     const [liveElementPosition, setLiveElementPosition] = useState<{ id: string; x: number; y: number } | null>(null);
     const [isAdvancedPaletteOpen, setIsAdvancedPaletteOpen] = useState(false);
     const [selectedPalettePresetId, setSelectedPalettePresetId] = useState<string | null>(null);
     const [isLoadingProject, setIsLoadingProject] = useState(true);
-    const [isGeneratingImages, setIsGeneratingImages] = useState(false);
     const [isExportingAllSlides, setIsExportingAllSlides] = useState(false);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    const { zoom, setZoom, setHasManualZoom, zoomIn, zoomOut, resetZoom } = useZoom({ stageContainerRef });
 
     const activeSlide = useMemo(
         () => slides.find((s) => s.id === activeSlideId) ?? slides[0],
@@ -278,61 +305,10 @@ export default function EditPage() {
     }, [slides, activeSlideId, activeSlideIndex]);
 
     useEffect(() => {
-        const container = stageContainerRef.current;
-        if (!container) {
-            return;
-        }
-
-        function applyResponsiveZoom() {
-            if (hasManualZoom) {
-                return;
-            }
-
-            const nextZoom = computeResponsiveZoom(container as any);
-            setZoom((current) => (
-                Math.abs(current - nextZoom) < 0.01 ? current : nextZoom
-            ));
-        }
-
-        applyResponsiveZoom();
-
-        const observer = new ResizeObserver(() => {
-            applyResponsiveZoom();
-        });
-
-        observer.observe(container);
-        window.addEventListener("resize", applyResponsiveZoom);
-
-        return () => {
-            observer.disconnect();
-            window.removeEventListener("resize", applyResponsiveZoom);
-        };
-    }, [hasManualZoom]);
-
-    useEffect(() => {
         if (selectedElementId) {
             setMobilePanel("inspector");
         }
     }, [selectedElementId]);
-
-    function zoomIn() {
-        setHasManualZoom(true);
-        setZoom((prev) => Math.min(MAX_ZOOM, Number((prev + ZOOM_STEP).toFixed(2))));
-    }
-
-    function zoomOut() {
-        setHasManualZoom(true);
-        setZoom((prev) => Math.max(MIN_ZOOM, Number((prev - ZOOM_STEP).toFixed(2))));
-    }
-
-    function resetZoom() {
-        setHasManualZoom(false);
-        if (stageContainerRef.current) {
-            setZoom(computeResponsiveZoom(stageContainerRef.current));
-            return;
-        }
-        setZoom(0.56);
-    }
 
     function goToSlide(index: number) {
         const next = slides[index];
@@ -345,99 +321,73 @@ export default function EditPage() {
         setLiveElementPosition(null);
     }
 
-    function handleStageTouchStart(event: TouchEvent<HTMLDivElement>) {
-        if (event.touches.length === 2) {
-            pinchStartRef.current = {
-                distance: getTouchDistance(event.touches[0], event.touches[1]),
-                zoom,
-            };
-            swipeStartRef.current = null;
-            return;
-        }
+    const { swipeHint, isSwipingRef, handleStageTouchStart, handleStageTouchMove, handleStageTouchEnd } = useSwipeNavigation({
+        zoom,
+        setZoom,
+        activeSlideIndex,
+        goToSlide,
+        setHasManualZoom,
+    });
 
-        pinchStartRef.current = null;
+    async function captureAllSlidesAsZip(): Promise<Blob> {
+        const zip = new JSZip();
+        const totalSlides = slides.length;
 
-        const touch = event.touches[0];
-        if (!touch || event.touches.length !== 1) {
-            swipeStartRef.current = null;
-            return;
-        }
+        // Pre-load all images so the browser cache is warm before the capture loop.
+        // This avoids race conditions where CORS-fallback retries aren't done yet
+        // when getPNGDataUrl() is called.
+        setStatusMessage("Carregando imagens...");
+        await preloadImagesForExport(collectImageUrls(slides));
 
-        isSwipingRef.current = false;
-        swipeStartRef.current = {
-            x: touch.clientX,
-            y: touch.clientY,
-            time: Date.now(),
-        };
-    }
+        const originalSlideId = activeSlideId;
+        const originalSelectedId = selectedElementId;
 
-    function handleStageTouchMove(event: TouchEvent<HTMLDivElement>) {
-        if (event.touches.length === 2 && pinchStartRef.current) {
-            const distance = getTouchDistance(event.touches[0], event.touches[1]);
-            const scaleFactor = distance / pinchStartRef.current.distance;
-            const nextZoom = Math.min(
-                MAX_ZOOM,
-                Math.max(MIN_ZOOM, Number((pinchStartRef.current.zoom * scaleFactor).toFixed(2)))
-            );
-            setHasManualZoom(true);
-            setZoom((current) => (Math.abs(current - nextZoom) < 0.01 ? current : nextZoom));
-            return;
-        }
+        flushSync(() => {
+            setSelectedElementId(null);
+        });
 
-        if (event.touches.length === 1 && swipeStartRef.current) {
-            const touch = event.touches[0];
-            const deltaX = touch.clientX - swipeStartRef.current.x;
-            const deltaY = touch.clientY - swipeStartRef.current.y;
-            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 8) {
-                isSwipingRef.current = true;
-                const progress = Math.min(Math.abs(deltaX) / 80, 1);
-                setSwipeHint({ direction: deltaX < 0 ? "right" : "left", progress });
-                return;
+        for (let i = 0; i < totalSlides; i++) {
+            flushSync(() => {
+                setStatusMessage(`Exportando slide ${i + 1} de ${totalSlides}...`);
+                const next = slides[i];
+                if (next) {
+                    setActiveSlideId(next.id);
+                    setLiveElementPosition(null);
+                }
+            });
+
+            // Wait for canvas to paint the new slide
+            await new Promise<void>((resolve) => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        setTimeout(resolve, 200);
+                    });
+                });
+            });
+
+            try {
+                const dataUrl = canvasRef.current?.getPNGDataUrl();
+                if (dataUrl) {
+                    const base64 = dataUrl.split(",")[1];
+                    zip.file(`slide-${String(i + 1).padStart(2, "0")}.png`, base64, { base64: true });
+                }
+            } catch {
+                // Canvas tainted by a non-CORS image — skip this slide rather than
+                // aborting the entire export.
+                console.warn(`Slide ${i + 1}: canvas tainted, skipping.`);
             }
         }
 
-        setSwipeHint(null);
+        flushSync(() => {
+            setActiveSlideId(originalSlideId);
+            setSelectedElementId(originalSelectedId);
+        });
+
+        return zip.generateAsync({ type: "blob" });
     }
-
-    function handleStageTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
-        if (event.touches.length < 2) {
-            pinchStartRef.current = null;
-        }
-
-        const start = swipeStartRef.current;
-        swipeStartRef.current = null;
-        isSwipingRef.current = false;
-
-        if (!start || event.changedTouches.length !== 1) {
-            return;
-        }
-
-        setSwipeHint(null);
-
-        const touch = event.changedTouches[0];
-        const deltaX = touch.clientX - start.x;
-        const deltaY = touch.clientY - start.y;
-        const elapsed = Date.now() - start.time;
-
-        const isHorizontalSwipe = Math.abs(deltaX) > 56 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3;
-        const isFastEnough = elapsed < 700;
-
-        if (!isHorizontalSwipe || !isFastEnough) {
-            return;
-        }
-
-        if (deltaX < 0) {
-            goToSlide(activeSlideIndex + 1);
-            return;
-        }
-
-        goToSlide(activeSlideIndex - 1);
-    }
-
-
 
     async function exportAllSlides() {
-        if (!serverCarousel || serverCarousel.slides.length === 0 || isExportingAllSlides) {
+        if (!serverCarousel || slides.length === 0 || isExportingAllSlides) {
             return;
         }
 
@@ -446,31 +396,13 @@ export default function EditPage() {
         setStatusMessage("Preparando ZIP...");
 
         try {
-            const token = await auth.currentUser?.getIdToken();
-            if (!token) {
-                throw new Error("Usuário não autenticado.");
-            }
-
-            const response = await fetch(EXPORT_ZIP_ENDPOINT, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ projectId }),
-            });
-
-            if (!response.ok) {
-                throw new Error(await response.text());
-            }
-
-            const blob = await response.blob();
+            const blob = await captureAllSlidesAsZip();
             const fileName = slugifyFileName(projectName || "carrossel") || "carrossel";
             downloadBlob(blob, `${fileName}.zip`);
             setStatusMessage("ZIP com todos os slides baixado.");
         } catch (error) {
             console.error(error);
-            setErrorMessage("Não foi possível exportar todos os slides.");
+            setErrorMessage("Não foi possível exportar os slides.");
         } finally {
             setIsExportingAllSlides(false);
         }
@@ -530,104 +462,28 @@ export default function EditPage() {
         }, delayMs);
     }
 
-    function friendlyImageError(message?: string): string {
-        if (!message) return "Não foi possível gerar a imagem. Tente novamente.";
-        if (message.includes("crédit") || message.includes("insuficiente") || message.includes("saldo"))
-            return "Créditos insuficientes. Adquira mais para continuar gerando imagens.";
-        if (message.includes("network") || message.includes("fetch") || message.includes("Failed to fetch"))
-            return "Sem conexão. Verifique sua internet e tente novamente.";
-        if (message.includes("auth") || message.includes("unauthenticated") || message.includes("autenticad"))
-            return "Sessão expirada. Recarregue a página e tente novamente.";
-        if (message.includes("timeout") || message.includes("AbortError") || message.includes("demorou"))
-            return "A geração demorou demais. Tente novamente.";
-        if (message.includes("prompt") || message.includes("content") || message.includes("policy"))
-            return "Prompt não permitido. Tente reformular a descrição da imagem.";
-        if (message.includes("rate") || message.includes("limit") || message.includes("quota"))
-            return "Muitas requisições. Aguarde alguns segundos e tente novamente.";
-        return "Não foi possível gerar a imagem. Tente novamente.";
-    }
-
-    async function requestImageGeneration(projectIdValue: string, slideId: string, elementId: string) {
-        const token = await auth.currentUser?.getIdToken();
-        const res = await fetch(GENERATE_IMAGE_ENDPOINT, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify({ projectId: projectIdValue, slideId, elementId }),
-        });
-
-        const contentType = res.headers.get("content-type") ?? "";
-        const payload = contentType.includes("application/json") ? await res.json() : await res.text();
-
-        if (!res.ok) {
-            const message = typeof payload === "string" ? payload : payload?.error ?? "Erro ao gerar imagem";
-            throw new Error(String(message));
-        }
-
-        if (typeof payload !== "object" || !payload || !payload.ok) {
-            throw new Error("Erro ao gerar imagem");
-        }
-
-        return String(payload.src ?? "");
-    }
-
-    async function generateSelectedImage() {
-        if (
-            !projectId
-            || !selectedEditableElement
-            || (selectedEditableElement.type !== "image" && selectedEditableElement.type !== "backgroundImage")
-        ) {
-            return;
-        }
-
-        if (typeof selectedEditableElement.prompt !== "string" || selectedEditableElement.prompt.trim().length === 0) {
-            setErrorMessage("Esse elemento não tem prompt de imagem.");
-            return;
-        }
-
-        setIsGeneratingImages(true);
-        setStatusMessage("Gerando imagem com IA...");
-        setErrorMessage(null);
-
-        updateEditableElement(selectedEditableElement.id, { status: "pending" });
-
-        try {
-            const src = await requestImageGeneration(projectId, activeSlideId, selectedEditableElement.id);
-            updateEditableElement(selectedEditableElement.id, { src, status: "ready" });
-            setStatusMessage("Imagem atualizada.");
-        } catch (error) {
-            console.error(error);
-            updateEditableElement(selectedEditableElement.id, { status: "error" });
-            setErrorMessage(friendlyImageError(error instanceof Error ? error.message : undefined));
-        } finally {
-            setIsGeneratingImages(false);
-        }
-    }
+    const { isGeneratingImages, imagePickerRef, generateSelectedImage, openImagePicker, handleImageFileChange, removeSelectedImage } = useImageEditor({
+        projectId,
+        activeSlideId,
+        selectedEditableElement,
+        serverCarousel,
+        updateEditableElement,
+        persistCarousel,
+        setStatusMessage,
+        setErrorMessage,
+    });
 
     async function shareAllSlides() {
-        if (!serverCarousel || serverCarousel.slides.length === 0) return;
+        if (!serverCarousel || slides.length === 0) return;
 
         setStatusMessage("Preparando para compartilhar...");
         setErrorMessage(null);
 
         try {
-            const token = await auth.currentUser?.getIdToken();
-            if (!token) throw new Error("Usuário não autenticado.");
-
-            const response = await fetch(EXPORT_ZIP_ENDPOINT, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ projectId }),
-            });
-
-            if (!response.ok) throw new Error(await response.text());
-
-            const zipBlob = await response.blob();
-            const zip = await JSZip.loadAsync(zipBlob);
+            const zipBlob = await captureAllSlidesAsZip();
             const baseName = slugifyFileName(projectName || "carrossel") || "carrossel";
 
+            const zip = await JSZip.loadAsync(zipBlob);
             const files: File[] = await Promise.all(
                 Object.entries(zip.files)
                     .filter(([, entry]) => !entry.dir)
@@ -651,79 +507,6 @@ export default function EditPage() {
         }
     }
 
-    function openImagePicker() {
-        imagePickerRef.current?.click();
-    }
-
-    async function handleImageFileChange(event: ChangeEvent<HTMLInputElement>) {
-        const file = event.target.files?.[0];
-        if (
-            !file
-            || !projectId
-            || !selectedEditableElement
-            || (selectedEditableElement.type !== "image" && selectedEditableElement.type !== "backgroundImage")
-        ) {
-            return;
-        }
-
-        try {
-            const extension = getFileExtension(file);
-            const path = `projects/${projectId}/slides/${activeSlideId}/${selectedEditableElement.id}.${extension}`;
-            const fileRef = storageRef(storage, path);
-
-            setErrorMessage(null);
-            setStatusMessage("Enviando imagem...");
-
-            await uploadBytes(fileRef, file, { contentType: file.type || "image/png" });
-            const src = await getDownloadURL(fileRef);
-
-            const nextCarousel = updateCarouselElement(
-                serverCarousel,
-                activeSlideId,
-                selectedEditableElement.id,
-                { src, status: "ready" }
-            );
-
-            updateEditableElement(selectedEditableElement.id, { src, status: "ready" });
-
-            if (nextCarousel) {
-                await persistCarousel(nextCarousel);
-            }
-
-            setStatusMessage("Imagem salva na galeria.");
-        } catch (error) {
-            console.error(error);
-            setErrorMessage("Não foi possível enviar a imagem.");
-        } finally {
-            event.target.value = "";
-        }
-    }
-
-    async function removeSelectedImage() {
-        if (
-            !selectedEditableElement
-            || (selectedEditableElement.type !== "image" && selectedEditableElement.type !== "backgroundImage")
-        ) {
-            return;
-        }
-
-        const nextCarousel = updateCarouselElement(
-            serverCarousel,
-            activeSlideId,
-            selectedEditableElement.id,
-            { src: "", status: "idle" }
-        );
-
-        updateEditableElement(selectedEditableElement.id, { src: "", status: "idle" });
-
-        if (nextCarousel) {
-            await persistCarousel(nextCarousel);
-        }
-
-        setStatusMessage("Imagem removida. Você pode gerar outra ou escolher da galeria.");
-        setErrorMessage(null);
-    }
-
     function handleElementPositionChange(elementId: string, position: { x: number; y: number }) {
         setLiveElementPosition(null);
         updateEditableElement(elementId, position, { persistDelayMs: 0 });
@@ -745,7 +528,7 @@ export default function EditPage() {
         updateEditableElement(selectedEditableElement.id, { content: value }, { persistDelayMs: 500 });
     }
 
-    function handleElementCoordinateChange(axis: "x" | "y", rawValue: string) {
+    function handleElementCoordinateChange(axis: "x" | "y" | "w" | "h" | "fontSize", rawValue: string) {
         if (!selectedEditableElement || !isEditableElementType(selectedEditableElement.type)) {
             return;
         }
@@ -1333,6 +1116,9 @@ function updateElementList(elements: any[] | undefined, elementId: string, patch
         const next = { ...element };
         if (patch.x !== undefined) next.x = patch.x;
         if (patch.y !== undefined) next.y = patch.y;
+        if (patch.w !== undefined) { next.w = patch.w; next.width = patch.w; }
+        if (patch.h !== undefined) { next.h = patch.h; next.height = patch.h; }
+        if (patch.fontSize !== undefined) next.fontSize = patch.fontSize;
         if (patch.src !== undefined) {
             next.src = patch.src;
             next.url = patch.src;
@@ -1445,13 +1231,6 @@ function renderInspectorElementIcon(type: string) {
             <path d="M12 8v8" />
         </svg>
     );
-}
-
-function computeResponsiveZoom(container: HTMLElement) {
-    const widthRatio = Math.max(0.1, (container.clientWidth - STAGE_PADDING) / DOC_W);
-    const heightRatio = Math.max(0.1, (container.clientHeight - STAGE_PADDING) / DOC_H);
-    const fitted = Math.min(widthRatio, heightRatio);
-    return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(fitted.toFixed(2))));
 }
 
 function getInspectorElementPreview(element: InspectorElementEntry, slide?: EditorSlide) {
@@ -1751,22 +1530,6 @@ function trimAlpha(value: number) {
     return Number(value.toFixed(3)).toString();
 }
 
-function getFileExtension(file: File) {
-    const byMime = file.type.split("/")[1]?.trim().toLowerCase();
-    if (byMime) {
-        if (byMime === "jpeg") return "jpg";
-        if (byMime === "svg+xml") return "svg";
-        return byMime;
-    }
-
-    const rawName = file.name.split(".").pop()?.trim().toLowerCase();
-    if (rawName) {
-        return rawName;
-    }
-
-    return "png";
-}
-
 function downloadBlob(blob: Blob, fileName: string) {
     const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1786,9 +1549,3 @@ function slugifyFileName(value: string) {
         .replace(/^-+|-+$/g, "");
 }
 
-function getTouchDistance(
-    first: { clientX: number; clientY: number },
-    second: { clientX: number; clientY: number }
-) {
-    return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY);
-}

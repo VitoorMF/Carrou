@@ -1,5 +1,5 @@
 import { Circle, Group, Image, Layer, Line, Path, Rect, Stage, Text } from "react-konva";
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import type { Carousel, El, Slide } from "./types";
 import { useKonvaImage } from "./hooks/useKonvaImage";
 import { ShapeRenderer } from "./renderers/ShapeRenderer";
@@ -267,6 +267,92 @@ function CanvasImageElement({
                     width={elW}
                     height={elH}
                     cornerRadius={radius}
+                    stroke="rgba(20,93,243,0.85)"
+                    strokeWidth={2}
+                    dash={[10, 8]}
+                    listening={false}
+                />
+            )}
+        </Group>
+    );
+}
+
+function SelectableText({
+    el,
+    displayText,
+    fontSize,
+    fontFamily,
+    fontStyle,
+    textWidth,
+    align,
+    lineHeight,
+    letterSpacing,
+    position,
+    selected,
+    draggable,
+    onSelect,
+    onDragMove,
+    onDragEnd,
+}: {
+    el: Extract<El, { type: "text" }>;
+    displayText: string;
+    fontSize: number;
+    fontFamily: string;
+    fontStyle: string;
+    textWidth: number;
+    align: string;
+    lineHeight: number;
+    letterSpacing: number;
+    position: { x: number; y: number };
+    selected: boolean;
+    draggable: boolean;
+    onSelect: () => void;
+    onDragMove: (event: any) => void;
+    onDragEnd: (event: any) => void;
+}) {
+    const [measuredHeight, setMeasuredHeight] = useState(0);
+
+    const textRef = useCallback((node: any) => {
+        if (node) {
+            setMeasuredHeight(node.height());
+        }
+    }, [displayText, fontSize, fontFamily, textWidth, lineHeight, letterSpacing]);
+
+    return (
+        <Group
+            x={position.x}
+            y={position.y}
+            draggable={draggable}
+            onClick={onSelect}
+            onTap={onSelect}
+            onDragMove={onDragMove}
+            onDragEnd={onDragEnd}
+        >
+            <Text
+                ref={textRef}
+                text={displayText}
+                fill={el.fill ?? "#FFFFFF"}
+                fontSize={fontSize}
+                fontFamily={fontFamily}
+                fontStyle={fontStyle}
+                width={textWidth}
+                align={align}
+                lineHeight={lineHeight}
+                letterSpacing={letterSpacing}
+                opacity={el.opacity ?? 1}
+                shadowColor={el.shadowColor}
+                shadowBlur={el.shadowBlur}
+                shadowOffsetX={el.shadowOffsetX}
+                shadowOffsetY={el.shadowOffsetY}
+                shadowOpacity={el.shadowOpacity}
+                listening
+            />
+            {selected && measuredHeight > 0 && (
+                <Rect
+                    x={0}
+                    y={0}
+                    width={textWidth}
+                    height={measuredHeight}
                     stroke="rgba(20,93,243,0.85)"
                     strokeWidth={2}
                     dash={[10, 8]}
@@ -618,41 +704,34 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(
 
                 // ── TEXT ─────────────────────────────────────────────────────
                 if (el.type === "text") {
+                    const textEl = el as Extract<El, { type: "text" }>;
                     // Suporte a ambos os campos: text (novo normalize) e content (legado editor)
-                    const displayText = el.text ?? (el as any).content ?? "";
-                    const fontSize = Math.max(14, el.fontSize ?? 32);
+                    const displayText = textEl.text ?? (el as any).content ?? "";
+                    const fontSize = Math.max(14, textEl.fontSize ?? 32);
                     const isHeading = fontSize >= 52;
-                    const lineHeight = Math.max(0.88, Math.min(1.6, el.lineHeight ?? (isHeading ? 1.05 : 1.35)));
-                    const letterSpacing = Math.max(-8, Math.min(8, el.letterSpacing ?? (isHeading ? -1 : 0)));
+                    const lineHeight = Math.max(0.88, Math.min(1.6, textEl.lineHeight ?? (isHeading ? 1.05 : 1.35)));
+                    const letterSpacing = Math.max(-8, Math.min(8, textEl.letterSpacing ?? (isHeading ? -1 : 0)));
+
+                    const textWidth = textEl.width ?? DOC_W - 144;
 
                     return (
-                        <Text
+                        <SelectableText
                             key={`text_${i}`}
-                            x={getRenderedPosition(el).x}
-                            y={getRenderedPosition(el).y}
-                            text={displayText}
-                            fill={el.fill ?? "#FFFFFF"}
+                            el={textEl}
+                            displayText={displayText}
                             fontSize={fontSize}
-                            fontFamily={normalizeFontFamily(el.fontFamily)}
-                            fontStyle={normalizeFontStyle(el.fontStyle, isHeading)}
-                            width={el.width ?? DOC_W - 144}
-                            align={el.align ?? "left"}
+                            fontFamily={normalizeFontFamily(textEl.fontFamily)}
+                            fontStyle={normalizeFontStyle(textEl.fontStyle, isHeading)}
+                            textWidth={textWidth}
+                            align={textEl.align ?? "left"}
                             lineHeight={lineHeight}
                             letterSpacing={letterSpacing}
-                            opacity={el.opacity ?? 1}
-                            shadowColor={el.shadowColor}
-                            shadowBlur={el.shadowBlur}
-                            shadowOffsetX={el.shadowOffsetX}
-                            shadowOffsetY={el.shadowOffsetY}
-                            shadowOpacity={el.shadowOpacity}
-                            listening
+                            position={getRenderedPosition(el)}
+                            selected={isSelected(el)}
                             draggable={isMovable(el) && isSelected(el)}
-                            onClick={() => selectElement(el)}
-                            onTap={() => selectElement(el)}
+                            onSelect={() => selectElement(el)}
                             onDragMove={(event) => handleDragMove(el, event.target)}
                             onDragEnd={(event) => handleDragEnd(el, event.target)}
-                            stroke={isSelected(el) ? "rgba(20,93,243,0.85)" : undefined}
-                            strokeWidth={isSelected(el) ? 1 : 0}
                         />
                     );
                 }
