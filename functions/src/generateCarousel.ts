@@ -9,7 +9,7 @@ import cors from "cors";
 
 import { generateCarouselJson } from "./ai/generator";
 import { normalizeCarousel } from "./ai/normalize";
-import { findTemplateById, inferTemplateFromPrompt } from "./ai/templateCatalog";
+import { findTemplateById, pickTemplateWithAI } from "./ai/templateCatalog";
 import { buildLayeredTemplateCarousel, type TemplateDraft } from "../../shared/templateEngine";
 import { assertHasCredits, debitCredits } from "./payments/credits";
 
@@ -154,12 +154,12 @@ export const generateCarousel = onRequest(
                 logger.info("OpenAI client criado");
 
                 const requestedTemplate = findTemplateById(templateId);
-                const inferredTemplate = inferTemplateFromPrompt(prompt);
-                const selectedTemplate = requestedTemplate ?? inferredTemplate;
+                const selectedTemplate = requestedTemplate ?? await pickTemplateWithAI(openai, prompt);
                 logger.info("template resolvido", {
                     ms: Date.now() - t0,
                     requestedTemplateId: templateId ?? null,
                     selectedTemplateId: selectedTemplate.id,
+                    aiPicked: !requestedTemplate,
                 });
 
                 const t1 = Date.now();

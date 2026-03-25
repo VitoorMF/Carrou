@@ -78,24 +78,34 @@ export function getDefaultTemplate(): TemplateCatalogItem {
     return TEMPLATE_CATALOG.find((item) => item.id === DEFAULT_TEMPLATE_ID) ?? TEMPLATE_CATALOG[0];
 }
 
-export function inferTemplateFromPrompt(prompt: string): TemplateCatalogItem {
-    const value = String(prompt ?? "").toLowerCase();
+export async function pickTemplateWithAI(
+    openai: import("openai").default,
+    prompt: string
+): Promise<TemplateCatalogItem> {
+    const options = TEMPLATE_CATALOG
+        .map((t) => `- ${t.id}: ${t.description}`)
+        .join("\n");
 
-    if (/luxo|premium|sofistic|elegan|alto padr[aã]o|exclusiv/.test(value)) {
-        return findTemplateById("luxuryMinimal") ?? getDefaultTemplate();
+    try {
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            max_tokens: 20,
+            temperature: 0,
+            messages: [
+                {
+                    role: "system",
+                    content: `Você é um seletor de templates para carrosséis de redes sociais. Dado o prompt do usuário, escolha o template mais adequado ao tom e conteúdo. Responda APENAS com o id exato do template, sem explicação.\n\nTemplates disponíveis:\n${options}`,
+                },
+                {
+                    role: "user",
+                    content: prompt,
+                },
+            ],
+        });
+
+        const rawId = response.choices[0]?.message?.content?.trim() ?? "";
+        return findTemplateById(rawId) ?? getDefaultTemplate();
+    } catch {
+        return getDefaultTemplate();
     }
-
-    if (/streetwear|urban|hype|moda|drop|sneaker|trap|ousad/.test(value)) {
-        return findTemplateById("streetwearPro") ?? getDefaultTemplate();
-    }
-
-    if (/3d|editorial|criativo|futur|tecnolog|produto/.test(value)) {
-        return findTemplateById("editorial3D") ?? getDefaultTemplate();
-    }
-
-    if (/clima|clim[aá]tic|debate|document[aá]r|report|janela|vidro|glass|revista|reportagem/.test(value)) {
-        return findTemplateById("glassEditorial") ?? getDefaultTemplate();
-    }
-
-    return findTemplateById("microBlogBold") ?? getDefaultTemplate();
 }

@@ -18,6 +18,15 @@ function buildEditorialPrompt(heading: string) {
     ].join(", ");
 }
 
+function isLightHex(hex: string): boolean {
+    const clean = hex.replace("#", "");
+    if (clean.length !== 6) return true;
+    const r = parseInt(clean.slice(0, 2), 16);
+    const g = parseInt(clean.slice(2, 4), 16);
+    const b = parseInt(clean.slice(4, 6), 16);
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 128;
+}
+
 export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): CarouselElement[] {
     const { slideIndex, role, copy, palette } = params;
     const imageLayout = slideIndex % 2 === 0;
@@ -26,6 +35,9 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
     const textPrimary = palette.text;
     const textMuted = palette.muted;
     const accent2 = palette.accent2;
+
+    // Text on photo overlays must contrast with the dark gradient — always light
+    const photoText = isLightHex(palette.text) ? palette.text : "#FFFFFF";
     const heading = truncateText(copy.heading || "Você pensa no que vai dizer", imageLayout ? 74 : 80);
     const support = truncateText(
         copy.support || "Design não é só estética. É sobre comunicar com clareza, intenção e consistência visual.",
@@ -70,11 +82,11 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
                 start: { x: 0, y: 0 },
                 end: { x: 0, y: DOC_H },
                 stops: [
-                    0, "rgba(10,10,10,0.62)",
-                    0.32, "rgba(10,10,10,0.46)",
-                    0.58, "rgba(10,10,10,0.26)",
-                    0.8, "rgba(10,10,10,0.08)",
-                    1, "rgba(10,10,10,0)",
+                    0, "rgba(0,0,0,0.62)",
+                    0.32, "rgba(0,0,0,0.46)",
+                    0.58, "rgba(0,0,0,0.26)",
+                    0.8, "rgba(0,0,0,0.08)",
+                    1, "rgba(0,0,0,0)",
                 ],
                 opacity: 1,
             },
@@ -89,11 +101,11 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
                 start: { x: 0, y: 0 },
                 end: { x: 860, y: 0 },
                 stops: [
-                    0, "rgba(10,10,10,0.62)",
-                    0.32, "rgba(10,10,10,0.46)",
-                    0.58, "rgba(10,10,10,0.26)",
-                    0.8, "rgba(10,10,10,0.08)",
-                    1, "rgba(10,10,10,0)",
+                    0, "rgba(0,0,0,0.62)",
+                    0.32, "rgba(0,0,0,0.46)",
+                    0.58, "rgba(0,0,0,0.26)",
+                    0.8, "rgba(0,0,0,0.08)",
+                    1, "rgba(0,0,0,0)",
                 ],
                 opacity: 1,
             },
@@ -103,7 +115,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
                 x: 84,
                 y: role === "hook" ? 770 : 630,
                 text: heading,
-                fill: textPrimary,
+                fill: photoText,
                 fontSize: role === "hook" ? 52 : 48,
                 fontFamily: "Montserrat",
                 fontStyle: "normal",
@@ -119,7 +131,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
                 x: 84,
                 y: role === "hook" ? 1010 : 860,
                 text: support,
-                fill: withAlpha(textPrimary, 0.9),
+                fill: withAlpha(photoText, 0.9),
                 fontSize: 29,
                 fontFamily: "Manrope",
                 fontStyle: "normal",
@@ -176,7 +188,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
             text: imageLayout
                 ? truncateText(extra, 62)
                 : `✓ ${truncateText(extra, 52)}`,
-            fill: imageLayout ? withAlpha(textPrimary, 0.84) : withAlpha(textPrimary, 0.92),
+            fill: imageLayout ? withAlpha(photoText, 0.84) : withAlpha(textPrimary, 0.92),
             fontSize: imageLayout ? 24 : 26,
             fontFamily: "Manrope",
             fontStyle: "normal",
@@ -195,7 +207,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
             x: 84,
             y: 1288,
             text: signature,
-            fill: imageLayout ? withAlpha(textPrimary, 0.6) : withAlpha(textMuted, 0.72),
+            fill: imageLayout ? withAlpha(photoText, 0.6) : withAlpha(textMuted, 0.72),
             fontSize: 11,
             fontFamily: "Sora",
             fontStyle: "normal",
@@ -211,7 +223,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
             x: 84,
             y: 78,
             text: role === "hook" ? "ABERTURA" : role === "cta" ? "VIRADA" : `PONTO ${slideIndex}`,
-            fill: imageLayout ? withAlpha(textPrimary, 0.86) : withAlpha(textMuted, 0.72),
+            fill: imageLayout ? withAlpha(photoText, 0.86) : withAlpha(textMuted, 0.72),
             fontSize: 15,
             fontFamily: "Sora",
             fontStyle: "bold",

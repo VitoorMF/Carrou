@@ -31,9 +31,14 @@
 }
 
 .header_actions {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: end;
     gap: 10px;
+    z-index: 50;
 }
 
 .token_chip {
@@ -42,15 +47,16 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    height: 36px;
-    padding: 0 10px;
-    border-radius: 10px;
+    height: 42px;
+    padding: 0 14px;
+    border-radius: 12px;
     border: none;
     background: #F77E58;
     color: #ffffff;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     transition: background-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+    box-shadow: 0 4px 16px rgba(247, 126, 88, 0.4);
 }
 
 .token_chip:hover {
@@ -70,16 +76,17 @@
 }
 
 .create_button {
-    height: 36px;
+    height: 42px;
     border: 1px solid #111827;
-    border-radius: 10px;
-    padding: 0 12px;
+    border-radius: 12px;
+    padding: 0 16px;
     background: #111827;
     color: #fff;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     cursor: pointer;
     transition: background-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
 .create_button:hover {
@@ -507,6 +514,8 @@
     background: #edeff4;
     height: 148px;
     overflow: hidden;
+    display: flex;
+    justify-content: center;
 }
 
 .project_preview_canvas {
@@ -556,16 +565,26 @@
     }
 
     .dashboard_header,
-    .header_actions,
     .dashboard_toolbar {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .header_actions {
+        bottom: 20px;
+        right: 16px;
     }
 
     .search_box {
         width: 100%;
     }
 
+    .projects_grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 640px) {
     .projects_grid {
         grid-template-columns: 1fr;
     }

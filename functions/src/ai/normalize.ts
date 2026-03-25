@@ -1,9 +1,9 @@
 import type { Carousel, CarouselDraft } from "./schemas";
-import { findTemplateById, getDefaultTemplate, inferTemplateFromPrompt, type TemplateCatalogItem, type TemplateId } from "./templateCatalog";
+import { findTemplateById, getDefaultTemplate, type TemplateCatalogItem, type TemplateId } from "./templateCatalog";
 import { buildFlatTemplateCarousel, truncateText, type TemplateDraft } from "../../../shared/templateEngine";
 
 function resolveTemplate(prompt: string, requestedTemplateId?: string | null): TemplateCatalogItem {
-    return findTemplateById(requestedTemplateId) ?? inferTemplateFromPrompt(prompt) ?? getDefaultTemplate();
+    return findTemplateById(requestedTemplateId) ?? getDefaultTemplate();
 }
 
 function toTemplateDraft(draft: CarouselDraft): TemplateDraft {

@@ -46,6 +46,7 @@ export default function EditPage() {
     const persistTimeoutRef = useRef<number | null>(null);
     const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
     const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null);
+    const isSwipingRef = useRef(false);
 
     const [swipeHint, setSwipeHint] = useState<{ direction: "left" | "right"; progress: number } | null>(null);
 
@@ -359,6 +360,7 @@ export default function EditPage() {
             return;
         }
 
+        isSwipingRef.current = false;
         swipeStartRef.current = {
             x: touch.clientX,
             y: touch.clientY,
@@ -379,11 +381,12 @@ export default function EditPage() {
             return;
         }
 
-        if (event.touches.length === 1 && swipeStartRef.current && !selectedElementId) {
+        if (event.touches.length === 1 && swipeStartRef.current) {
             const touch = event.touches[0];
             const deltaX = touch.clientX - swipeStartRef.current.x;
             const deltaY = touch.clientY - swipeStartRef.current.y;
             if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 8) {
+                isSwipingRef.current = true;
                 const progress = Math.min(Math.abs(deltaX) / 80, 1);
                 setSwipeHint({ direction: deltaX < 0 ? "right" : "left", progress });
                 return;
@@ -400,8 +403,10 @@ export default function EditPage() {
 
         const start = swipeStartRef.current;
         swipeStartRef.current = null;
+        const wasSwiping = isSwipingRef.current;
+        isSwipingRef.current = false;
 
-        if (!start || event.changedTouches.length !== 1 || selectedElementId) {
+        if (!start || event.changedTouches.length !== 1) {
             return;
         }
 
@@ -541,9 +546,13 @@ export default function EditPage() {
     }
 
     async function requestImageGeneration(projectIdValue: string, slideId: string, elementId: string) {
+        const token = await auth.currentUser?.getIdToken();
         const res = await fetch(GENERATE_IMAGE_ENDPOINT, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
             body: JSON.stringify({ projectId: projectIdValue, slideId, elementId }),
         });
 
@@ -821,6 +830,7 @@ export default function EditPage() {
                     onTouchMove={handleStageTouchMove}
                     onTouchEnd={handleStageTouchEnd}
                     onSelectElement={(elementId) => {
+                        if (isSwipingRef.current) return;
                         setSelectedElementId(elementId);
                         setLiveElementPosition(null);
                     }}

@@ -26,14 +26,17 @@ export function EditHeader({
     return (
         <header className="editor_topbar">
             <div className="topbar_group">
-                <button className="back_button" onClick={onBack} type="button">
-                    ← Voltar
+                <button className="back_button" onClick={onBack} type="button" aria-label="Voltar" title="Voltar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 12H5M5 12l7 7M5 12l7-7" />
+                    </svg>
                 </button>
                 <input
                     className="project_title"
                     type="text"
                     value={projectName}
                     onChange={(event) => onProjectNameChange(event.target.value)}
+                    onFocus={(e) => { const el = e.currentTarget; setTimeout(() => { el.setSelectionRange(el.value.length, el.value.length); el.scrollLeft = el.scrollWidth; }, 0); }}
                 />
             </div>
 

@@ -1,15 +1,12 @@
 import "./SplashPage.css";
+import logo from "../../assets/page/landing/icon.svg";
 
 export default function SplashPage() {
     return (
         <div className="splash_container">
             <div className="splash_content">
-                <div className="logo_block">
-                    <div className="token_spinner" />
-                    <h1>Carrosselize</h1>
-                </div>
-
-                <p className="loading_text">Carregando sua experiência...</p>
+                <img src={logo} alt="Carrosselize" className="splash_logo" />
+                <div className="splash_spinner" />
             </div>
         </div>
     );

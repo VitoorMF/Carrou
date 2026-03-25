@@ -15,11 +15,11 @@ export const TEMPLATE_PALETTE_PRESETS: Record<TemplateId, PalettePreset[]> = {
             label: "Paper",
             description: "Claro e editorial",
             palette: {
-                bg: "#F5F5F0",
-                text: "#0A0A0A",
-                muted: "#555555",
-                accent: "#2563EB",
-                accent2: "#DC2626",
+                bg: "#FAF7F0",
+                text: "#1C1008",
+                muted: "#8B7355",
+                accent: "#B5451B",
+                accent2: "#4A6741",
             },
         },
         {

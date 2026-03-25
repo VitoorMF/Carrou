@@ -196,22 +196,22 @@ export function DashboardPage() {
                                 <p className="small_label">Workspace</p>
                                 <h1>Projetos recentes</h1>
                             </div>
-
-                            <div className="header_actions">
-                                <button type="button" className="token_chip" onClick={() => navigate("/plans")}>
-                                    <img src={token} alt="Créditos" />
-                                    <span>{userData?.creditsBalance ?? 0}</span>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => navigate("/create")}
-                                    className="create_button"
-                                >
-                                    Criar carrossel
-                                </button>
-                            </div>
                         </header>
+
+                        <div className="header_actions">
+                            <button type="button" className="token_chip" onClick={() => navigate("/plans")}>
+                                <img src={token} alt="Créditos" />
+                                <span>{userData?.creditsBalance ?? 0}</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => navigate("/create")}
+                                className="create_button"
+                            >
+                                Criar carrossel
+                            </button>
+                        </div>
 
                         {(() => {
                             const hasPhoto = !!userData?.avatarUrl;
@@ -293,6 +293,7 @@ export function DashboardPage() {
                                                             className="project_title"
                                                             value={project?.meta?.title || "Sem título"}
                                                             onClick={(event) => event.stopPropagation()}
+                                                            onFocus={(e) => { const el = e.currentTarget; setTimeout(() => { el.setSelectionRange(el.value.length, el.value.length); el.scrollLeft = el.scrollWidth; }, 0); }}
                                                             onChange={async (event) => {
                                                                 const newTitle = event.target.value;
 

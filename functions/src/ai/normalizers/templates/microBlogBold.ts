@@ -125,7 +125,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
                 x: 84,
                 y: role === "hook" ? 1010 : 860,
                 text: support,
-                fill: withAlpha(textPrimary, 0.9),
+                fill: textPrimary,
                 fontSize: 29,
                 fontFamily: "Manrope",
                 fontStyle: "normal",

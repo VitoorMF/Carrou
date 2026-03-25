@@ -411,27 +411,26 @@
 }
 
 .layoutPreset {
-    display: grid;
-    gap: 10px;
-    border-radius: 12px;
-    border: 1px solid var(--cp-border);
-    background: #ffffff;
-    padding: 12px;
+    position: relative;
+    border-radius: 14px;
+    border: 2px solid transparent;
+    background: transparent;
+    padding: 0;
     cursor: pointer;
     text-align: left;
+    overflow: hidden;
     transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
     will-change: transform;
 }
 
 .layoutPreset:hover {
-    border-color: #c8d0e0;
-    box-shadow: 0 6px 18px rgba(17, 24, 39, 0.1);
-    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(17, 24, 39, 0.16);
+    transform: translateY(-3px);
 }
 
 .layoutPreset.isActive {
-    border-color: rgba(247, 126, 88, 0.6);
-    box-shadow: 0 0 0 3px rgba(247, 126, 88, 0.12);
+    border-color: #f77e58;
+    box-shadow: 0 0 0 3px rgba(247, 126, 88, 0.2), 0 8px 24px rgba(247, 126, 88, 0.18);
     animation: activeNavPop 0.22s ease;
 }
 
@@ -445,15 +444,22 @@
 }
 
 .layoutPresetLabel {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 28px 12px 12px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, transparent 100%);
     font-size: 13px;
-    font-weight: 800;
-    color: var(--cp-text);
+    font-weight: 700;
+    color: #ffffff;
+    border-radius: 0 0 12px 12px;
 }
 
 .layoutPreview {
     position: relative;
-    height: 140px;
-    border-radius: 8px;
+    height: 160px;
+    border-radius: 0;
     overflow: hidden;
     border: 1px solid rgba(209, 213, 219, 0.7);
     background: linear-gradient(180deg, #f8fafc 0%, #e5e7eb 100%);
