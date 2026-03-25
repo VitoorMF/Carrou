@@ -493,11 +493,16 @@ body,
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto;
     gap: 10px;
+    margin-bottom: 20px;
 }
 
 .slide_indicator_row {
     display: flex;
     justify-content: center;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 15px;
 }
 
 .editor_snackbar {
@@ -1198,6 +1203,15 @@ body,
         padding: 10px;
         gap: 10px;
         min-height: 0;
+    }
+
+    .slide_indicator_row {
+        position: fixed;
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
+        left: 0;
+        right: 0;
+        z-index: 35;
+        pointer-events: none;
     }
 
     .panel {

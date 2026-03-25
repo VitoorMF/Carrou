@@ -16,31 +16,31 @@ export const TEMPLATE_CATALOG: TemplateCatalogItem[] = [
     {
         id: "streetwearPro",
         label: "Streetwear Pro",
-        description: "Alto contraste, tipografia forte e visual chamativo.",
+        description: "Ideal para conteúdo provocativo, marketing agressivo, fitness e personal branding. Visual urbano de alto contraste com fotos editoriais.",
         defaultTheme: "streetwear",
     },
     {
         id: "luxuryMinimal",
         label: "Luxury Minimal",
-        description: "Layout elegante, respiro e foco em premium.",
+        description: "Ideal para coaching, desenvolvimento pessoal, beleza e marcas premium. Layout elegante e clean com tipografia serifada.",
         defaultTheme: "luxury",
     },
     {
         id: "microBlogBold",
         label: "Micro Blog Bold",
-        description: "Formato didático, direto e otimizado para conteúdo.",
+        description: "Ideal para listas práticas, checklists, erros comuns e passo-a-passo direto. Formato de micro-blog com texto sobre foto editorial.",
         defaultTheme: "microblog",
     },
     {
         id: "editorial3D",
         label: "Editorial 3D",
-        description: "Layout com profundidade visual e elementos tridimensionais.",
+        description: "Ideal para temas criativos, educação divertida, tecnologia e conceitos abstratos. Usa ilustrações 3D estilizadas em vez de fotos.",
         defaultTheme: "editorial3d",
     },
     {
         id: "glassEditorial",
         label: "Glass Editorial",
-        description: "Painel translúcido sobre fotografia forte, com clima de reportagem visual.",
+        description: "Ideal para opiniões, debates, análise aprofundada e storytelling jornalístico. Painel translúcido sobre fotografia documental.",
         defaultTheme: "glass_editorial",
     },
 ];
@@ -90,11 +90,11 @@ export async function pickTemplateWithAI(
         const response = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             max_tokens: 20,
-            temperature: 0,
+            temperature: 0.7,
             messages: [
                 {
                     role: "system",
-                    content: `Você é um seletor de templates para carrosséis de redes sociais. Dado o prompt do usuário, escolha o template mais adequado ao tom e conteúdo. Responda APENAS com o id exato do template, sem explicação.\n\nTemplates disponíveis:\n${options}`,
+                    content: `Você é um seletor de templates para carrosséis de redes sociais. Dado o prompt do usuário, escolha o template mais adequado ao tom e conteúdo. Varie suas escolhas — não favoreça sempre o mesmo template. Responda APENAS com o id exato do template, sem explicação.\n\nTemplates disponíveis:\n${options}`,
                 },
                 {
                     role: "user",

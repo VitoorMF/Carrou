@@ -70,7 +70,6 @@ function EditorSnackbar({
 }
 
 export function CanvasArea({
-    slidesCount,
     activeSlideIndex,
     isLoadingProject,
     statusMessage,
@@ -140,18 +139,6 @@ export function CanvasArea({
                     </div>
                 )}
             </div>
-            <div className="slide_indicator_row">
-                <div className="slide_indicator">
-                    {slidesCount <= 12 ? (
-                        Array.from({ length: slidesCount }, (_, i) => (
-                            <span key={i} className={`slide_dot${i === activeSlideIndex ? " slide_dot_active" : ""}`} />
-                        ))
-                    ) : (
-                        <span className="slide_dot_text">{activeSlideIndex + 1} / {slidesCount}</span>
-                    )}
-                </div>
-            </div>
-
             <EditorSnackbar
                 isLoadingProject={isLoadingProject}
                 statusMessage={statusMessage}

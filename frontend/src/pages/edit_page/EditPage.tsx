@@ -874,6 +874,18 @@ export default function EditPage() {
                     renderInspectorElementIcon={renderInspectorElementIcon}
                 />
             </div>
+            <div className="slide_indicator_row">
+                <div className="slide_indicator">
+                    {slides.length <= 12 ? (
+                        Array.from({ length: slides.length }, (_, i) => (
+                            <span key={i} className={`slide_dot${i === activeSlideIndex ? " slide_dot_active" : ""}`} />
+                        ))
+                    ) : (
+                        <span className="slide_dot_text">{activeSlideIndex + 1} / {slides.length}</span>
+                    )}
+                </div>
+            </div>
+
             <div className={`export_drawer ${mobilePanel === "export" ? "is_open" : ""}`}>
                 <span className="export_panel_title">Exportar slides</span>
                 <div className="export_panel_options">
