@@ -2,7 +2,14 @@ import { useNavigate } from "react-router-dom";
 import "./LandingPage.css";
 
 import logo from "../../assets/page/landing/logo.svg";
-import { useEffect, useState } from "react";
+import slide01 from "../../assets/page/landing/previews/slide-01.png";
+import slide02 from "../../assets/page/landing/previews/slide-02.png";
+import slide03 from "../../assets/page/landing/previews/slide-03.png";
+import slide04 from "../../assets/page/landing/previews/slide-04.png";
+import slide05 from "../../assets/page/landing/previews/slide-05.png";
+import slide06 from "../../assets/page/landing/previews/slide-06.png";
+import { Menu, X, Layers, Zap, Wand2, Smartphone, ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "../../services/firebase";
@@ -97,19 +104,52 @@ function HeroTitle() {
     );
 }
 
+const PREVIEW_MOCKS: string[] = [
+    slide01,
+    slide02,
+    slide03,
+    slide04,
+    slide05,
+    slide06,
+];
+
 export function LandingPage() {
     const navigate = useNavigate();
+
+    const previewSectionRef = useRef<HTMLElement>(null);
+    const previewTrackRef = useRef<HTMLDivElement>(null);
 
     const [isNavOpen, setIsNavOpen] = useState(false);
     const [isAuthOpen, setIsAuthOpen] = useState(false);
     const [authLoading, setAuthLoading] = useState(false);
     const [authError, setAuthError] = useState<string | null>(null);
+    const [promptValue, setPromptValue] = useState("");
+    const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+    useEffect(() => {
+        const section = previewSectionRef.current;
+        const track = previewTrackRef.current;
+        if (!section || !track) return;
+
+        function onScroll() {
+            const rect = section!.getBoundingClientRect();
+            const entered = window.innerHeight - rect.top;
+            const total = window.innerHeight + rect.height;
+            const progress = Math.max(0, Math.min(1, entered / total));
+            const isMobile = window.innerWidth <= 920;
+            const x = isMobile ? 9 - progress * 30 : 20 - progress * 30;
+            track!.style.transform = `rotate(-4deg) translateX(${x}%)`;
+        }
+
+        window.addEventListener("scroll", onScroll, { passive: true });
+        onScroll();
+        return () => window.removeEventListener("scroll", onScroll);
+    }, []);
 
     const sections = [
         { id: "hero", label: "Início" },
         { id: "como", label: "Como funciona" },
         { id: "beneficios", label: "Benefícios" },
-        { id: "templates", label: "Templates" },
         { id: "faq", label: "FAQ" },
     ];
 
@@ -126,6 +166,13 @@ export function LandingPage() {
     function openAuthModal() {
         setAuthError(null);
         setIsAuthOpen(true);
+    }
+
+    function handleHeroCta() {
+        if (promptValue.trim()) {
+            localStorage.setItem("carrosselize_pending_prompt", promptValue.trim());
+        }
+        openAuthModal();
     }
 
     function closeAuthModal() {
@@ -170,7 +217,8 @@ export function LandingPage() {
             }
 
             setIsAuthOpen(false);
-            navigate("/");
+            const hasPendingPrompt = !!localStorage.getItem("carrosselize_pending_prompt");
+            navigate(hasPendingPrompt ? "/create" : "/");
         } catch (e: any) {
             setAuthError(e?.message ?? "Erro ao entrar com Google");
         } finally {
@@ -178,27 +226,6 @@ export function LandingPage() {
         }
     }
 
-    useEffect(() => {
-        const sectionsToReveal = Array.from(document.querySelectorAll<HTMLElement>(".reveal_section"));
-        if (sectionsToReveal.length === 0) {
-            return;
-        }
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add("is_visible");
-                    }
-                });
-            },
-            { threshold: 0.16, rootMargin: "0px 0px -8% 0px" }
-        );
-
-        sectionsToReveal.forEach((section) => observer.observe(section));
-
-        return () => observer.disconnect();
-    }, []);
 
 
 
@@ -210,6 +237,9 @@ export function LandingPage() {
                 <div className="lp_logo">
                     <img src={logo} alt="Carrosselize" />
                 </div>
+                <button className="btn btn_secondary" onClick={openAuthModal}>
+                    Entrar
+                </button>
             </header>
 
             <main className="lp_main">
@@ -218,9 +248,19 @@ export function LandingPage() {
                         <div className="lp_hero_left">
                             <HeroTitle />
 
-                            <textarea className="prompt_input" name="content" id="content" placeholder="5 erros que iniciantes cometem na academia..." />
+                            <textarea
+                                className="prompt_input"
+                                name="content"
+                                id="content"
+                                placeholder="5 erros que iniciantes cometem na academia..."
+                                value={promptValue}
+                                onChange={(e) => setPromptValue(e.target.value)}
+                            />
 
-                            <button className="btn btn_primary" onClick={openAuthModal}>
+                            <button
+                                className="btn btn_primary"
+                                onClick={handleHeroCta}
+                            >
                                 Começar agora
                             </button>
                         </div>
@@ -251,37 +291,41 @@ export function LandingPage() {
                             aria-label={isNavOpen ? "Fechar navegação" : "Abrir navegação"}
                             onClick={() => setIsNavOpen((prev) => !prev)}
                         >
-                            {isNavOpen ? "×" : "☰"}
+                            {isNavOpen ? <X size={20} /> : <Menu size={20} />}
                         </button>
                     </div>
                 </section>
 
-                <section className="lp_section reveal_section">
-                    <div className="lp_preview">
-                        <div className="preview_mock" />
-                        <div className="preview_mock" />
-                        <div className="preview_mock" />
+                <section className="lp_preview_section" ref={previewSectionRef}>
+                    <div className="lp_preview_sticky">
+                        <div className="lp_preview_track" ref={previewTrackRef}>
+                            {PREVIEW_MOCKS.map((src, i) => (
+                                <div key={i} className="preview_mock">
+                                    {src && <img src={src} alt={`Preview ${i + 1}`} />}
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </section>
 
-                <section className="lp_section reveal_section" id="como">
+                <section className="lp_section" id="como">
                     <div className="lp_container">
                         <h2 className="lp_h2">Como funciona</h2>
                         <p className="lp_p">3 passos simples pra sair do texto pro post.</p>
 
-                        <div className="lp_steps">
-                            <div className="card">
-                                <div className="card_top">1</div>
+                        <div className="lp_steps_timeline">
+                            <div className="timeline_step">
+                                <div className="timeline_num">1</div>
                                 <h3>Cole seu conteúdo</h3>
                                 <p>Você cola o texto ou um resumo do tema.</p>
                             </div>
-                            <div className="card">
-                                <div className="card_top">2</div>
+                            <div className="timeline_step">
+                                <div className="timeline_num">2</div>
                                 <h3>Escolha um estilo</h3>
                                 <p>Minimal, 3D editorial, playful… (e mais).</p>
                             </div>
-                            <div className="card">
-                                <div className="card_top">3</div>
+                            <div className="timeline_step">
+                                <div className="timeline_num">3</div>
                                 <h3>Edite e exporte</h3>
                                 <p>Arraste elementos e exporte pronto pro Instagram.</p>
                             </div>
@@ -289,72 +333,76 @@ export function LandingPage() {
                     </div>
                 </section>
 
-                <section className="lp_section reveal_section" id="beneficios">
+                <section className="lp_section" id="beneficios">
                     <div className="lp_container">
                         <h2 className="lp_h2">Por que Carrosselize?</h2>
 
-                        <div className="lp_features">
-                            <div className="feature card">
-                                <h3>Consistência visual</h3>
-                                <p>Tipografia, espaçamento e cores sempre alinhados.</p>
+                        <div className="lp_features_alt">
+                            <div className="feature_alt">
+                                <div className="feature_alt_icon_wrap">
+                                    <Layers size={52} />
+                                </div>
+                                <div className="feature_alt_text">
+                                    <h3>Consistência visual</h3>
+                                    <p>Tipografia, espaçamento e cores sempre alinhados — sem precisar ajustar nada manualmente.</p>
+                                </div>
                             </div>
-                            <div className="feature card">
-                                <h3>Rápido de verdade</h3>
-                                <p>Geração + layout em segundos, sem começar do zero.</p>
+                            <div className="feature_alt feature_alt_reverse">
+                                <div className="feature_alt_icon_wrap">
+                                    <Zap size={52} />
+                                </div>
+                                <div className="feature_alt_text">
+                                    <h3>Rápido de verdade</h3>
+                                    <p>Geração + layout em segundos, sem começar do zero cada vez.</p>
+                                </div>
                             </div>
-                            <div className="feature card">
-                                <h3>Editor inteligente</h3>
-                                <p>Elementos ajustam melhor no slide sem quebrar o design.</p>
+                            <div className="feature_alt">
+                                <div className="feature_alt_icon_wrap">
+                                    <Wand2 size={52} />
+                                </div>
+                                <div className="feature_alt_text">
+                                    <h3>Editor inteligente</h3>
+                                    <p>Elementos ajustam no slide sem quebrar o design. Você edita, o layout respeita.</p>
+                                </div>
                             </div>
-                            <div className="feature card">
-                                <h3>Feito pra IG</h3>
-                                <p>1080×1350, safe-area e export certeiro.</p>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section className="lp_section reveal_section" id="templates">
-                    <div className="lp_container">
-                        <div className="lp_split">
-                            <div>
-                                <h2 className="lp_h2">Templates prontos</h2>
-                                <p className="lp_p">
-                                    Comece com um layout e só ajuste o conteúdo.
-                                </p>
-
-                                <button className="btn btn_primary" onClick={openAuthModal}>
-                                    Testar templates
-                                </button>
-                            </div>
-
-                            <div className="lp_mock_grid">
-                                <div className="mock" />
-                                <div className="mock" />
-                                <div className="mock" />
-                                <div className="mock" />
+                            <div className="feature_alt feature_alt_reverse">
+                                <div className="feature_alt_icon_wrap">
+                                    <Smartphone size={52} />
+                                </div>
+                                <div className="feature_alt_text">
+                                    <h3>Feito pra IG</h3>
+                                    <p>1080×1350, safe-area e export certeiro. Sai do editor direto pro feed.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </section>
 
-                <section className="lp_section reveal_section" id="faq">
+
+                <section className="lp_section" id="faq">
                     <div className="lp_container">
                         <h2 className="lp_h2">FAQ</h2>
 
                         <div className="lp_faq">
-                            <details className="faq_item">
-                                <summary>Preciso saber design?</summary>
-                                <p>Não. O layout já sai coerente e você só faz ajustes finos se quiser.</p>
-                            </details>
-                            <details className="faq_item">
-                                <summary>Posso editar depois de gerar?</summary>
-                                <p>Sim. Você edita texto, arrasta elementos e troca estilos.</p>
-                            </details>
-                            <details className="faq_item">
-                                <summary>Exporta em qual formato?</summary>
-                                <p>Normalmente PNG por slide (ou PDF, se você implementar).</p>
-                            </details>
+                            {[
+                                { q: "Preciso saber design?", a: "Não. O layout já sai coerente e você só faz ajustes finos se quiser." },
+                                { q: "Posso editar depois de gerar?", a: "Sim. Você edita texto, arrasta elementos e troca estilos." },
+                                { q: "Exporta em qual formato?", a: "PNG por slide, em alta resolução (1080×1350). Você baixa um ZIP com todos os slides prontos pro Instagram." },
+                            ].map((item, i) => (
+                                <div
+                                    key={i}
+                                    className={`faq_item${openFaq === i ? " faq_open" : ""}`}
+                                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                                >
+                                    <div className="faq_summary">
+                                        <span>{item.q}</span>
+                                        <ChevronDown size={18} className="faq_chevron" />
+                                    </div>
+                                    <div className="faq_body">
+                                        <p>{item.a}</p>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
 
                         <div className="lp_final_cta">
@@ -383,7 +431,7 @@ export function LandingPage() {
                             disabled={authLoading}
                             aria-label="Fechar login"
                         >
-                            ×
+                            <X size={16} />
                         </button>
 
                         <p className="lp_auth_chip">Acesso imediato</p>

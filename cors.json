@@ -1,7 +1,9 @@
 [
     {
         "origin": [
-            "http://localhost:5173"
+            "http://localhost:5173",
+            "https://carrosselize.vercel.app",
+            "https://carrou.com.br"
         ],
         "method": [
             "GET",

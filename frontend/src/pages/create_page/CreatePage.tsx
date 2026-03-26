@@ -52,6 +52,14 @@ export default function CreatePage() {
     const [err, setErr] = useState<string | null>(null);
 
     useEffect(() => {
+        const pending = localStorage.getItem("carrosselize_pending_prompt");
+        if (pending) {
+            setPrompt(pending);
+            localStorage.removeItem("carrosselize_pending_prompt");
+        }
+    }, []);
+
+    useEffect(() => {
         if (!err) return;
         const t = setTimeout(() => setErr(null), 4000);
         return () => clearTimeout(t);
