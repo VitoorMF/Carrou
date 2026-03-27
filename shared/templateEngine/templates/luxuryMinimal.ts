@@ -1,15 +1,147 @@
-import { DOC_H, DOC_W, textOn, truncateText, withAlpha } from "../shared";
+import { DOC_H, DOC_W, truncateText, withAlpha } from "../shared";
 import type { CarouselElement, TemplateBuildParams } from "../types";
 
-export function buildLuxuryMinimalTemplate(params: TemplateBuildParams): CarouselElement[] {
-    const { slideIndex, role, copy, palette } = params;
+/*
+ * Luxury Minimal — Editorial 2026
+ *
+ * Conceito: quiet luxury, espaço respira, tipografia serifada dominante.
+ * Cover: foto full-bleed + overlay sutil + headline na parte inferior.
+ * Content: fundo sólido (cream), texto generoso, sem imagem.
+ * CTA: fundo sólido, headline centralizada, instrução mínima.
+ *
+ * Zero glows. Zero gradients decorativos. Zero bordas.
+ * Margens: 120px (luxo real = espaço vazio).
+ */
 
-    const bg = "#F3EEE6";
-    const textColor = textOn(bg);
-    const accent = palette.accent;
+const MARGIN = 120;
+const CONTENT_W = DOC_W - MARGIN * 2; // 840
 
-    const heading = truncateText(copy.heading || "Elegância no conteúdo", 72);
-    const support = truncateText(copy.support || "Estrutura limpa, premium e com foco total na mensagem.", 180);
+function buildEditorialPrompt(heading: string) {
+    return [
+        `luxury editorial photograph for: ${heading || "premium lifestyle"}`,
+        "environmental portrait or still life",
+        "desaturated warm tones, matte finish",
+        "soft natural light with atmosphere",
+        "shadows slightly lifted, not crushed",
+        "high-end magazine editorial quality",
+        "negative space for text overlay",
+        "no text, no typography, no watermark, no logo",
+    ].join(", ");
+}
+
+function buildCover(slideIndex: number, copy: TemplateBuildParams["copy"], palette: TemplateBuildParams["palette"]): CarouselElement[] {
+    const heading = truncateText(copy.heading || "Elegância no conteúdo", 64);
+    const support = truncateText(copy.support || "", 140);
+
+    return [
+        {
+            id: `bg_${slideIndex}`,
+            type: "background",
+            x: 0,
+            y: 0,
+            width: DOC_W,
+            height: DOC_H,
+            fill: palette.bg,
+            opacity: 1,
+        },
+        {
+            id: `hero_${slideIndex}`,
+            type: "backgroundImage",
+            x: 0,
+            y: 0,
+            width: DOC_W,
+            height: DOC_H,
+            prompt: buildEditorialPrompt(copy.heading),
+            fit: "cover",
+            opacity: 1,
+        },
+        // Overlay: sutil escurecimento na parte inferior para legibilidade
+        {
+            id: `overlay_${slideIndex}`,
+            type: "gradientRect",
+            x: 0,
+            y: 0,
+            width: DOC_W,
+            height: DOC_H,
+            kind: "linear",
+            start: { x: 0, y: 0 },
+            end: { x: 0, y: DOC_H },
+            stops: [
+                0, "rgba(0,0,0,0)",
+                0.45, "rgba(0,0,0,0)",
+                0.75, "rgba(0,0,0,0.18)",
+                1, "rgba(0,0,0,0.52)",
+            ],
+            opacity: 1,
+        },
+        // Label pequeno no topo
+        {
+            id: `kicker_${slideIndex}`,
+            type: "text",
+            x: MARGIN,
+            y: 72,
+            text: "EDITORIAL",
+            fill: "rgba(255,255,255,0.72)",
+            fontSize: 13,
+            fontFamily: "Manrope",
+            fontStyle: "bold",
+            width: 300,
+            align: "left",
+            lineHeight: 1,
+            letterSpacing: 3.5,
+            opacity: 1,
+        },
+        // Linha accent curta no topo
+        {
+            id: `accent_line_${slideIndex}`,
+            type: "path",
+            x: MARGIN,
+            y: 100,
+            data: "M0,0 L56,0 L56,1.5 L0,1.5 Z",
+            fill: palette.accent,
+            opacity: 0.8,
+        },
+        // Headline serifada grande na parte inferior
+        {
+            id: `heading_${slideIndex}`,
+            type: "text",
+            x: MARGIN,
+            y: 1020,
+            text: heading,
+            fill: "#FAFAF8",
+            fontSize: heading.length > 36 ? 48 : 56,
+            fontFamily: "Playfair Display",
+            fontStyle: "bold",
+            width: CONTENT_W,
+            align: "left",
+            lineHeight: 1.1,
+            letterSpacing: -0.5,
+            opacity: 1,
+        },
+        // Support sob o headline
+        ...(support ? [{
+            id: `support_${slideIndex}`,
+            type: "text" as const,
+            x: MARGIN,
+            y: 1200,
+            text: support,
+            fill: "rgba(255,255,255,0.68)",
+            fontSize: 22,
+            fontFamily: "Manrope",
+            fontStyle: "normal" as const,
+            width: 620,
+            align: "left" as const,
+            lineHeight: 1.4,
+            letterSpacing: 0,
+            opacity: 1,
+        }] : []),
+    ];
+}
+
+function buildContent(slideIndex: number, copy: TemplateBuildParams["copy"], palette: TemplateBuildParams["palette"]): CarouselElement[] {
+    const heading = truncateText(copy.heading || "Ponto importante", 80);
+    const support = truncateText(copy.support || "", 260);
+    const stepLabel = String(slideIndex).padStart(2, "0");
 
     const elements: CarouselElement[] = [
         {
@@ -19,120 +151,95 @@ export function buildLuxuryMinimalTemplate(params: TemplateBuildParams): Carouse
             y: 0,
             width: DOC_W,
             height: DOC_H,
-            fill: bg,
+            fill: palette.bg,
             opacity: 1,
         },
+        // Número do passo — discreto no topo
         {
-            id: `glow_${slideIndex}`,
-            type: "glow",
-            x: 220,
-            y: 220,
-            r: 260,
-            color: accent,
-            blur: 120,
-            opacity: 0.2,
-        },
-        {
-            id: `line_${slideIndex}`,
-            type: "path",
-            x: 72,
-            y: 98,
-            data: "M0,0 L936,0 L936,2 L0,2 Z",
-            fill: withAlpha(textColor, 0.22),
-            opacity: 1,
-        },
-        {
-            id: `kicker_${slideIndex}`,
+            id: `step_${slideIndex}`,
             type: "text",
-            x: 72,
-            y: 60,
-            text: role === "hook" ? "LUXURY MINIMAL" : role === "cta" ? "FINALIZE" : "EDITORIAL",
-            fill: withAlpha(textColor, 0.6),
-            fontSize: 15,
+            x: MARGIN,
+            y: 120,
+            text: stepLabel,
+            fill: withAlpha(palette.muted, 0.5),
+            fontSize: 13,
             fontFamily: "Manrope",
             fontStyle: "bold",
-            width: 500,
+            width: 100,
             align: "left",
             lineHeight: 1,
-            letterSpacing: 2.6,
+            letterSpacing: 3,
             opacity: 1,
         },
+        // Linha accent curta sob o step
+        {
+            id: `accent_line_${slideIndex}`,
+            type: "path",
+            x: MARGIN,
+            y: 148,
+            data: "M0,0 L48,0 L48,1.5 L0,1.5 Z",
+            fill: palette.accent,
+            opacity: 0.7,
+        },
+        // Headline serifada — grande, com respiro
         {
             id: `heading_${slideIndex}`,
             type: "text",
-            x: 72,
-            y: 190,
+            x: MARGIN,
+            y: 280,
             text: heading,
-            fill: textColor,
-            fontSize: heading.length > 28 ? 58 : 68,
+            fill: palette.text,
+            fontSize: heading.length > 40 ? 44 : 52,
             fontFamily: "Playfair Display",
             fontStyle: "bold",
-            width: role === "cta" ? 900 : 520,
+            width: CONTENT_W,
             align: "left",
-            lineHeight: 1.08,
-            letterSpacing: -0.4,
+            lineHeight: 1.12,
+            letterSpacing: -0.3,
             opacity: 1,
         },
+        // Separador fino — respira entre headline e body
+        {
+            id: `separator_${slideIndex}`,
+            type: "path",
+            x: MARGIN,
+            y: 540,
+            data: `M0,0 L${CONTENT_W},0 L${CONTENT_W},1 L0,1 Z`,
+            fill: withAlpha(palette.muted, 0.2),
+            opacity: 1,
+        },
+        // Body em sans-serif
         {
             id: `support_${slideIndex}`,
             type: "text",
-            x: 72,
-            y: role === "cta" ? 450 : 520,
+            x: MARGIN,
+            y: 580,
             text: support,
-            fill: withAlpha(textColor, 0.72),
-            fontSize: 27,
+            fill: withAlpha(palette.text, 0.65),
+            fontSize: 26,
             fontFamily: "Manrope",
             fontStyle: "normal",
-            width: role === "cta" ? 820 : 500,
+            width: 700,
             align: "left",
-            lineHeight: 1.42,
+            lineHeight: 1.48,
             letterSpacing: 0,
             opacity: 1,
         },
     ];
 
-    if (role !== "cta") {
-        elements.push(
-            {
-                id: `hero_${slideIndex}`,
-                type: "image",
-                x: 560,
-                y: 170,
-                width: 450,
-                height: 950,
-                prompt: `premium luxury portrait for: ${copy.heading || "high-end service"}. soft natural light, elegant style.`,
-                fit: "cover",
-                opacity: 1,
-                radius: 14,
-            },
-            {
-                id: `hero_border_${slideIndex}`,
-                type: "glassCard",
-                x: 548,
-                y: 158,
-                width: 474,
-                height: 974,
-                radius: 18,
-                fill: "rgba(0,0,0,0)",
-                stroke: withAlpha(accent, 0.45),
-                strokeWidth: 1.5,
-                opacity: 1,
-            }
-        );
-    }
-
-    copy.extras.slice(0, 2).forEach((extra, index) => {
+    // Extras com traço elegante
+    copy.extras.slice(0, 3).forEach((extra, index) => {
         elements.push({
             id: `extra_${slideIndex}_${index}`,
             type: "text",
-            x: 72,
-            y: 840 + index * 54,
-            text: `— ${truncateText(extra, 74)}`,
-            fill: withAlpha(textColor, 0.62),
+            x: MARGIN,
+            y: 790 + index * 52,
+            text: `—  ${truncateText(extra, 70)}`,
+            fill: withAlpha(palette.text, 0.48),
             fontSize: 22,
             fontFamily: "Manrope",
             fontStyle: "normal",
-            width: 480,
+            width: 700,
             align: "left",
             lineHeight: 1.3,
             letterSpacing: 0,
@@ -140,35 +247,91 @@ export function buildLuxuryMinimalTemplate(params: TemplateBuildParams): Carouse
         });
     });
 
-    if (role === "cta") {
-        elements.push(
-            {
-                id: `cta_line_${slideIndex}`,
-                type: "path",
-                x: 72,
-                y: 1020,
-                data: "M0,0 L420,0 L420,3 L0,3 Z",
-                fill: accent,
-                opacity: 1,
-            },
-            {
-                id: `cta_text_${slideIndex}`,
-                type: "text",
-                x: 72,
-                y: 1050,
-                text: "SALVE ESTE POST E APLIQUE HOJE",
-                fill: textColor,
-                fontSize: 21,
-                fontFamily: "Sora",
-                fontStyle: "bold",
-                width: 520,
-                align: "left",
-                lineHeight: 1.2,
-                letterSpacing: 1.2,
-                opacity: 1,
-            }
-        );
+    return elements;
+}
+
+function buildCta(slideIndex: number, copy: TemplateBuildParams["copy"], palette: TemplateBuildParams["palette"]): CarouselElement[] {
+    const heading = truncateText(copy.heading || "Próximo passo", 64);
+    const support = truncateText(copy.support || "", 120);
+
+    return [
+        {
+            id: `bg_${slideIndex}`,
+            type: "background",
+            x: 0,
+            y: 0,
+            width: DOC_W,
+            height: DOC_H,
+            fill: palette.bg,
+            opacity: 1,
+        },
+        // Linha accent centralizada acima do headline
+        {
+            id: `accent_line_${slideIndex}`,
+            type: "path",
+            x: DOC_W / 2 - 32,
+            y: 480,
+            data: "M0,0 L64,0 L64,1.5 L0,1.5 Z",
+            fill: palette.accent,
+            opacity: 0.8,
+        },
+        // Headline serifada centralizada — máximo impacto
+        {
+            id: `heading_${slideIndex}`,
+            type: "text",
+            x: MARGIN,
+            y: 530,
+            text: heading,
+            fill: palette.text,
+            fontSize: heading.length > 30 ? 48 : 56,
+            fontFamily: "Playfair Display",
+            fontStyle: "bold",
+            width: CONTENT_W,
+            align: "center",
+            lineHeight: 1.1,
+            letterSpacing: -0.4,
+            opacity: 1,
+        },
+        // Separador fino centralizado
+        {
+            id: `separator_${slideIndex}`,
+            type: "path",
+            x: DOC_W / 2 - 24,
+            y: 740,
+            data: "M0,0 L48,0 L48,1 L0,1 Z",
+            fill: withAlpha(palette.muted, 0.35),
+            opacity: 1,
+        },
+        // CTA text — instrução simples em small caps
+        {
+            id: `cta_text_${slideIndex}`,
+            type: "text",
+            x: MARGIN,
+            y: 776,
+            text: support.toUpperCase() || "SALVE E COMPARTILHE",
+            fill: withAlpha(palette.text, 0.5),
+            fontSize: 16,
+            fontFamily: "Manrope",
+            fontStyle: "bold",
+            width: CONTENT_W,
+            align: "center",
+            lineHeight: 1.6,
+            letterSpacing: 3,
+            opacity: 1,
+        },
+    ];
+}
+
+export function buildLuxuryMinimalTemplate(params: TemplateBuildParams): CarouselElement[] {
+    const { slideIndex, role, copy, palette } = params;
+
+    if (role === "hook") {
+        return buildCover(slideIndex, copy, palette);
     }
 
-    return elements.slice(0, 20);
+    if (role === "cta") {
+        return buildCta(slideIndex, copy, palette);
+    }
+
+    return buildContent(slideIndex, copy, palette);
 }

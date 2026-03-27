@@ -4,7 +4,7 @@ import type { CarouselElement, TemplateBuildParams } from "../types";
 export function buildStreetwearProTemplate(params: TemplateBuildParams): CarouselElement[] {
     const { slideIndex, role, copy, palette } = params;
 
-    const bg = role === "cta" ? palette.accent : "#0A0A0A";
+    const bg = role === "cta" ? palette.accent : palette.bg;
     const mainText = textOn(bg);
     const accent = role === "cta" ? palette.accent2 : palette.accent;
 
@@ -93,7 +93,7 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
         elements.push(
             useSplitHero
                 ? {
-                    id: `hero_${slideIndex}`,
+                    id: `hero_pair_${Math.floor(slideIndex / 2)}`,
                     type: "image",
                     x: slideIndex % 2 === 0 ? 540 : -540,
                     y: 320,
@@ -126,8 +126,8 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
                     start: { x: 0, y: 0 },
                     end: { x: 240, y: 0 },
                     stops: slideIndex % 2 === 0
-                        ? [0, bg, 1, "rgba(10,10,10,0)"]
-                        : [0, "rgba(10,10,10,0)", 1, bg],
+                        ? [0, bg, 1, withAlpha(bg, 0)]
+                        : [0, withAlpha(bg, 0), 1, bg],
                     opacity: 1,
                 }
                 : {
@@ -140,7 +140,7 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
                     kind: "linear",
                     start: { x: 0, y: 0 },
                     end: { x: 240, y: 0 },
-                    stops: [0, bg, 1, "rgba(10,10,10,0)"],
+                    stops: [0, bg, 1, withAlpha(bg, 0)],
                     opacity: 1,
                 }
         );
@@ -173,7 +173,7 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
                 x: 72,
                 y: 1060,
                 data: "M0,0 L450,0 L450,84 L0,84 Z",
-                fill: "#0A0A0A",
+                fill: palette.bg,
                 opacity: 1,
             },
             {
@@ -182,7 +182,7 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
                 x: 72,
                 y: 1083,
                 text: "SALVA E ENVIA PRA ALGUÉM →",
-                fill: "#FFFFFF",
+                fill: palette.text,
                 fontSize: 22,
                 fontFamily: "Sora",
                 fontStyle: "bold",

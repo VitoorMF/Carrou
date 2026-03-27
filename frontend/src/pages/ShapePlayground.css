@@ -80,6 +80,85 @@
     color: #374151;
 }
 
+.palette_swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.palette_swatch {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 20px;
+    border: 2px solid transparent;
+    background: #f1f5f9;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.palette_swatch:hover {
+    background: #e2e8f0;
+}
+
+.palette_swatch--active {
+    border-color: var(--swatch-color);
+    background: #fff;
+}
+
+.swatch_dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--swatch-color);
+    flex-shrink: 0;
+}
+
+.swatch_label {
+    line-height: 1;
+}
+
+.palette_tokens {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+.palette_token {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.token_dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.1);
+    flex-shrink: 0;
+}
+
+.token_name {
+    font-weight: 700;
+    color: #374151;
+    width: 56px;
+}
+
+.token_value {
+    color: #6b7280;
+    font-family: monospace;
+}
+
 .slide_editor {
     display: flex;
     flex-direction: column;

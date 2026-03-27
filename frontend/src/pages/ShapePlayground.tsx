@@ -4,6 +4,7 @@ import type { Carousel as CanvasCarousel } from "../editor/canvas/types";
 import type { Carousel as LayoutCarousel } from "../types/caroussel";
 import {
   buildLayeredTemplateCarousel,
+  type ResolvedPalette,
   type TemplateId,
 } from "../../../shared/templateEngine";
 import "./ShapePlayground.css";
@@ -16,6 +17,46 @@ const TEMPLATE_LABELS: Record<LocalTemplateId, string> = {
   luxuryMinimal: "Luxury Minimal",
   microBlogBold: "Micro Blog Bold",
   glassEditorial: "Glass Editorial",
+};
+
+type PaletteKey = "default" | "ocean" | "forest" | "sunset" | "lavender" | "rose" | "sand";
+
+const PALETTE_PRESETS: Record<PaletteKey, { label: string; swatch: string; palette: Partial<ResolvedPalette> | null }> = {
+  default: {
+    label: "Default",
+    swatch: "#888",
+    palette: null,
+  },
+  ocean: {
+    label: "Ocean",
+    swatch: "#00B4D8",
+    palette: { bg: "#0A1628", text: "#E8F4F8", muted: "#7BAFC4", accent: "#00B4D8", accent2: "#0077B6" },
+  },
+  forest: {
+    label: "Forest",
+    swatch: "#4CAF50",
+    palette: { bg: "#0D1F0D", text: "#E8F5E9", muted: "#81C784", accent: "#4CAF50", accent2: "#2E7D32" },
+  },
+  sunset: {
+    label: "Sunset",
+    swatch: "#FF6B35",
+    palette: { bg: "#1A0500", text: "#FFF8F0", muted: "#D4956A", accent: "#FF6B35", accent2: "#F7931A" },
+  },
+  lavender: {
+    label: "Lavender",
+    swatch: "#A855F7",
+    palette: { bg: "#1A0A2E", text: "#F3E8FF", muted: "#C084FC", accent: "#A855F7", accent2: "#7C3AED" },
+  },
+  rose: {
+    label: "Rose",
+    swatch: "#F43F5E",
+    palette: { bg: "#1A0508", text: "#FFF0F3", muted: "#F9A8B8", accent: "#F43F5E", accent2: "#E11D48" },
+  },
+  sand: {
+    label: "Sand",
+    swatch: "#D4883A",
+    palette: { bg: "#F5EFE6", text: "#2C1A0E", muted: "#8B6A4E", accent: "#D4883A", accent2: "#9E5A1F" },
+  },
 };
 
 const PLAYGROUND_IMAGE_BY_TEMPLATE: Record<LocalTemplateId, string> = {
@@ -105,14 +146,23 @@ function applyPreviewImage(carousel: CanvasCarousel, imageUrl: string): CanvasCa
   };
 }
 
-function buildLocalPreview(templateId: LocalTemplateId, mock: LayoutCarousel): CanvasCarousel {
-  const carousel = buildLayeredTemplateCarousel(templateId, mock as any) as unknown as CanvasCarousel;
+function buildLocalPreview(
+  templateId: LocalTemplateId,
+  mock: LayoutCarousel,
+  paletteOverride: Partial<ResolvedPalette> | null
+): CanvasCarousel {
+  const carousel = buildLayeredTemplateCarousel(
+    templateId,
+    mock as any,
+    paletteOverride ?? undefined
+  ) as unknown as CanvasCarousel;
   return applyPreviewImage(carousel, PLAYGROUND_IMAGE_BY_TEMPLATE[templateId]);
 }
 
 export default function ShapePlayground() {
   const [template, setTemplate] = useState<LocalTemplateId>("microBlogBold");
   const [themeToken, setThemeToken] = useState("clean");
+  const [paletteKey, setPaletteKey] = useState<PaletteKey>("default");
   const [slideIndex, setSlideIndex] = useState(0);
   const [mockCarousel, setMockCarousel] = useState<LayoutCarousel>(() => makeMockCarousel("clean"));
 
@@ -120,10 +170,7 @@ export default function ShapePlayground() {
     setThemeToken(nextToken);
     setMockCarousel((current) => ({
       ...current,
-      meta: {
-        ...current.meta,
-        theme: nextToken,
-      },
+      meta: { ...current.meta, theme: nextToken },
     }));
   }
 
@@ -137,11 +184,7 @@ export default function ShapePlayground() {
   }
 
   function updateSlideBullets(value: string) {
-    const bullets = value
-      .split("\n")
-      .map((item) => item.trim())
-      .filter(Boolean);
-
+    const bullets = value.split("\n").map((item) => item.trim()).filter(Boolean);
     setMockCarousel((current) => ({
       ...current,
       slides: current.slides.map((slide, index) =>
@@ -150,9 +193,11 @@ export default function ShapePlayground() {
     }));
   }
 
+  const selectedPreset = PALETTE_PRESETS[paletteKey];
+
   const carousel = useMemo(
-    () => buildLocalPreview(template, mockCarousel),
-    [template, mockCarousel]
+    () => buildLocalPreview(template, mockCarousel, selectedPreset.palette),
+    [template, mockCarousel, selectedPreset]
   );
 
   const slideCount = carousel.slides.length;
@@ -180,6 +225,37 @@ export default function ShapePlayground() {
             </option>
           ))}
         </select>
+
+        <label>Paleta de cores</label>
+        <div className="palette_swatches">
+          {(Object.entries(PALETTE_PRESETS) as [PaletteKey, typeof PALETTE_PRESETS[PaletteKey]][]).map(
+            ([key, preset]) => (
+              <button
+                key={key}
+                type="button"
+                className={`palette_swatch${paletteKey === key ? " palette_swatch--active" : ""}`}
+                style={{ "--swatch-color": preset.swatch } as React.CSSProperties}
+                onClick={() => setPaletteKey(key)}
+                title={preset.label}
+              >
+                <span className="swatch_dot" />
+                <span className="swatch_label">{preset.label}</span>
+              </button>
+            )
+          )}
+        </div>
+
+        {selectedPreset.palette && (
+          <div className="palette_tokens">
+            {(Object.entries(selectedPreset.palette) as [string, string][]).map(([token, color]) => (
+              <div key={token} className="palette_token">
+                <span className="token_dot" style={{ background: color }} />
+                <span className="token_name">{token}</span>
+                <span className="token_value">{color}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <label htmlFor="theme_token">Token de tema</label>
         <input

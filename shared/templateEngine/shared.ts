@@ -12,11 +12,11 @@ const DESIGN_PALETTES: Record<TemplateId, ResolvedPalette> = {
         accent2: "#FFD600",
     },
     luxuryMinimal: {
-        bg: "#F0EBE1",
-        text: "#1A1208",
-        muted: "#7A6A55",
-        accent: "#C2922A",
-        accent2: "#8B4513",
+        bg: "#FAF9F6",
+        text: "#1C1917",
+        muted: "#A8A29E",
+        accent: "#B8977E",
+        accent2: "#78716C",
     },
     editorial3D: {
         bg: "#EFF8F8",

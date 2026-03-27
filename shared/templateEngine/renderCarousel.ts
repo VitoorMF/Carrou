@@ -1,6 +1,6 @@
 import { buildTemplateElements } from "./buildTemplateElements";
 import { resolvePaletteByTemplate, resolveSlideRole, sanitizeImageElements, truncateText } from "./shared";
-import type { CarouselElement, TemplateDraft, TemplateDraftSlide, TemplateId } from "./types";
+import type { CarouselElement, ResolvedPalette, TemplateDraft, TemplateDraftSlide, TemplateId } from "./types";
 
 type FlatTemplateSlide = {
     id: string;
@@ -89,8 +89,10 @@ export function toLayeredSlide(slide: FlatTemplateSlide): LayeredTemplateSlide {
     return { id: slide.id, layers: { background, atmosphere, content, ui } };
 }
 
-export function buildFlatTemplateCarousel(templateId: TemplateId, draft: TemplateDraft): FlatTemplateCarousel {
-    const palette = resolvePaletteByTemplate(templateId);
+export function buildFlatTemplateCarousel(templateId: TemplateId, draft: TemplateDraft, paletteOverride?: Partial<ResolvedPalette>): FlatTemplateCarousel {
+    const palette = paletteOverride
+        ? { ...resolvePaletteByTemplate(templateId), ...paletteOverride }
+        : resolvePaletteByTemplate(templateId);
 
     const slides = (draft.slides ?? []).slice(0, 8).map((slide, index, all) => {
         const role = slide.role === "cover"
@@ -128,8 +130,8 @@ export function buildFlatTemplateCarousel(templateId: TemplateId, draft: Templat
     };
 }
 
-export function buildLayeredTemplateCarousel(templateId: TemplateId, draft: TemplateDraft): LayeredTemplateCarousel {
-    const flat = buildFlatTemplateCarousel(templateId, draft);
+export function buildLayeredTemplateCarousel(templateId: TemplateId, draft: TemplateDraft, paletteOverride?: Partial<ResolvedPalette>): LayeredTemplateCarousel {
+    const flat = buildFlatTemplateCarousel(templateId, draft, paletteOverride);
     return {
         ...flat,
         slides: flat.slides.map(toLayeredSlide),
