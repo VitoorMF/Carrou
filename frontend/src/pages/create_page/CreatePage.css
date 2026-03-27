@@ -359,13 +359,27 @@
 }
 
 @keyframes snackbar_in {
-    from { opacity: 0; transform: translateX(-50%) translateY(12px); }
-    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
 }
 
 @keyframes snackbar_out {
-    from { opacity: 1; transform: translateX(-50%) translateY(0); }
-    to   { opacity: 0; transform: translateX(-50%) translateY(12px); }
+    from {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateX(-50%) translateY(12px);
+    }
 }
 
 .errorText {
@@ -539,6 +553,98 @@
     top: 92px;
 }
 
+/* ─── Street No Image preview ─── */
+
+.previewSniNum,
+.previewSniVSep,
+.previewSniRBar,
+.previewSniTopBar,
+.previewSniHeadLine,
+.previewSniBodyLine,
+.previewSniPill {
+    position: absolute;
+}
+
+.previewSniNum {
+    left: -18px;
+    top: -4px;
+    font-size: 90px;
+    font-weight: 900;
+    color: #FF5500;
+    line-height: 1;
+    letter-spacing: -4px;
+    opacity: 0.82;
+    font-family: sans-serif;
+}
+
+.previewSniVSep {
+    left: 42px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #FF5500;
+}
+
+.previewSniRBar {
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: #FF5500;
+}
+
+.previewSniTopBar {
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #FF5500;
+}
+
+.previewSniHeadLine {
+    left: 52px;
+    right: 14px;
+    height: 5px;
+    border-radius: 2px;
+    background: #FF5500;
+}
+
+.previewSniHeadLineTop {
+    top: 28px;
+}
+
+.previewSniHeadLineMid {
+    top: 38px;
+    right: 36px;
+}
+
+.previewSniBodyLine {
+    left: 52px;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.35);
+}
+
+.previewSniBodyLineTop {
+    top: 68px;
+    right: 20px;
+}
+
+.previewSniBodyLineBot {
+    top: 76px;
+    right: 40px;
+}
+
+.previewSniPill {
+    left: 52px;
+    bottom: 14px;
+    width: 58px;
+    height: 12px;
+    border-radius: 999px;
+    background: #FF5500;
+}
+
+/* ─── Luxury Minimal preview ─── */
 .layoutPreview.is-luxuryMinimal {
     background:
         radial-gradient(circle at top center, rgba(255, 255, 255, 0.75), transparent 34%),
@@ -608,13 +714,13 @@
 }
 
 .layoutPreview.is-microBlogBold {
-    background:
-        linear-gradient(180deg, #8e6a48 0%, #6f4d31 48%, #4a3122 100%);
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
 }
 
 .previewMicroPanel,
 .previewMicroPhoto,
-.previewMicroOverlay,
+.previewMicroAccentBar,
 .previewMicroLabelLine,
 .previewMicroTitleLine,
 .previewMicroSupport,
@@ -622,84 +728,98 @@
     position: absolute;
 }
 
+/* Left orange accent bar */
 .previewMicroPanel {
-    inset: 10px;
-    border-radius: 18px;
-    border: 1px solid rgba(255, 244, 235, 0.16);
-    box-shadow: inset 0 1px 0 rgba(255, 244, 235, 0.08);
-    z-index: 0;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 5px;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    background: #D4622A;
+    z-index: 2;
 }
 
+/* Photo placeholder - top right quadrant */
 .previewMicroPhoto {
-    inset: 10px;
-    border-radius: 18px;
+    top: 14px;
+    right: 14px;
+    width: 46%;
+    height: 40%;
+    border-radius: 6px;
     background:
-        radial-gradient(circle at 34% 30%, rgba(229, 195, 157, 0.42), transparent 18%),
-        radial-gradient(circle at 76% 24%, rgba(34, 20, 14, 0.34), transparent 24%),
-        linear-gradient(115deg, rgba(62, 35, 20, 0.46) 0%, rgba(38, 23, 16, 0.08) 38%, rgba(29, 18, 14, 0.48) 100%),
-        linear-gradient(180deg, #9f7a55 0%, #7e5637 44%, #4a3122 100%);
+        linear-gradient(135deg, #E8E0D4 0%, #D4C8B8 100%);
     z-index: 0;
 }
 
-.previewMicroOverlay {
-    left: 10px;
-    right: 10px;
-    bottom: 10px;
-    height: 76px;
-    border-radius: 0 0 18px 18px;
-    background: linear-gradient(180deg, rgba(31, 20, 14, 0) 0%, rgba(31, 20, 14, 0.52) 54%, rgba(31, 20, 14, 0.84) 100%);
-    z-index: 1;
+/* Accent line above heading */
+.previewMicroAccentBar {
+    left: 18px;
+    bottom: 68px;
+    width: 42px;
+    height: 5px;
+    border-radius: 2px;
+    background: #D4622A;
+    z-index: 2;
 }
 
+/* Mode/brand tag at top left */
 .previewMicroLabelLine {
-    top: 24px;
-    left: 24px;
-    width: 54px;
-    height: 6px;
-    border-radius: 999px;
-    background: rgba(255, 246, 237, 0.9);
+    top: 18px;
+    left: 18px;
+    width: 38px;
+    height: 5px;
+    border-radius: 2px;
+    background: #D4622A;
+    opacity: 0.7;
     z-index: 2;
 }
 
+/* Heading lines */
 .previewMicroTitleLine {
-    left: 24px;
-    height: 9px;
-    border-radius: 999px;
-    background: rgba(255, 248, 240, 0.95);
+    left: 18px;
+    height: 10px;
+    border-radius: 2px;
+    background: #111111;
     z-index: 2;
 }
 
+/* First heading line - dark */
 .previewMicroTitleLineTop {
-    right: 114px;
-    bottom: 58px;
+    right: 50%;
+    bottom: 52px;
 }
 
+/* Second heading line - orange accent */
 .previewMicroTitleLineBottom {
-    right: 82px;
-    bottom: 44px;
+    width: 36%;
+    bottom: 36px;
+    background: #D4622A;
 }
 
+/* Body text line */
 .previewMicroSupport {
-    left: 24px;
-    height: 15px;
+    left: 18px;
+    height: 5px;
     border-radius: 999px;
-    background: rgba(255, 244, 235, 0.72);
+    background: rgba(0, 0, 0, 0.16);
     z-index: 2;
 }
 
 .previewMicroSupportTop {
-    right: 88px;
-    bottom: 38px;
+    right: 36px;
+    bottom: 22px;
 }
 
-
+/* Signature line */
 .previewMicroSignatureLine {
-    left: 24px;
-    bottom: 18px;
-    right: 138px;
-    height: 4px;
+    left: 18px;
+    bottom: 12px;
+    width: 32%;
+    height: 3px;
     border-radius: 999px;
-    background: rgba(255, 241, 230, 0.58);
+    background: rgba(0, 0, 0, 0.1);
     z-index: 2;
 }
 

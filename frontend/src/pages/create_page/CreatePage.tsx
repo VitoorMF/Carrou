@@ -337,9 +337,10 @@ function TemplatePreview({ templateId }: { templateId: TemplateId }) {
             <div className="layoutPreview is-microBlogBold" aria-hidden="true">
                 <span className="previewMicroPanel" />
                 <span className="previewMicroPhoto" />
-                <span className="previewMicroOverlay" />
+                <span className="previewMicroAccentBar" />
                 <span className="previewMicroLabelLine" />
                 <span className="previewMicroTitleLine previewMicroTitleLineTop" />
+                <span className="previewMicroTitleLine previewMicroTitleLineBottom" />
                 <span className="previewMicroSupport previewMicroSupportTop" />
                 <span className="previewMicroSignatureLine" />
             </div>
