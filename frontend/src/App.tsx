@@ -17,7 +17,7 @@ export default function App() {
 
   return (
     <div style={{ padding: 24, maxWidth: 600 }}>
-      <h2>Carrosselize 🚀</h2>
+      <h2>Carrou 🚀</h2>
 
       <textarea
         value={text}

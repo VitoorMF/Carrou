@@ -124,7 +124,7 @@ export const createCreditCheckout = onRequest(
                                 currency: "brl",
                                 unit_amount: product.amountCents,
                                 product_data: {
-                                    name: `Carrosselize — ${product.name}`,
+                                    name: `Carrou — ${product.name}`,
                                 },
                             },
                         },

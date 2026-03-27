@@ -52,7 +52,7 @@ export function AppSidebar(_props: AppSidebarProps = {}) {
     return (
         <aside className="app_sidebar" aria-label="Navegação principal">
             <div className="sidebar_logo">
-                <img src={logo} alt="Carrosselize" className="sidebar_logo_img" />
+                <img src={logo} alt="Carrou" className="sidebar_logo_img" />
             </div>
 
             <nav className="sidebar_nav">

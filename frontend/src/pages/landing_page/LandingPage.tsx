@@ -235,7 +235,7 @@ export function LandingPage() {
         <div className="lp">
             <header className="lp_header lp_container">
                 <div className="lp_logo">
-                    <img src={logo} alt="Carrosselize" />
+                    <img src={logo} alt="Carrou" />
                 </div>
                 <button className="btn btn_secondary" onClick={openAuthModal}>
                     Entrar
@@ -335,7 +335,7 @@ export function LandingPage() {
 
                 <section className="lp_section" id="beneficios">
                     <div className="lp_container">
-                        <h2 className="lp_h2">Por que Carrosselize?</h2>
+                        <h2 className="lp_h2">Por que Carrou?</h2>
 
                         <div className="lp_features_alt">
                             <div className="feature_alt">
@@ -421,7 +421,7 @@ export function LandingPage() {
                         className="auth_modal"
                         role="dialog"
                         aria-modal="true"
-                        aria-label="Entrar no Carrosselize"
+                        aria-label="Entrar no Carrou"
                         onClick={(event) => event.stopPropagation()}
                     >
                         <button
@@ -435,7 +435,7 @@ export function LandingPage() {
                         </button>
 
                         <p className="lp_auth_chip">Acesso imediato</p>
-                        <h2 className="auth_modal_title">Entrar no Carrosselize</h2>
+                        <h2 className="auth_modal_title">Entrar no Carrou</h2>
                         <p className="auth_modal_subtitle">
                             Faça login para salvar seus projetos e começar a gerar carrosséis agora.
                         </p>
@@ -472,7 +472,7 @@ export function LandingPage() {
 
             <footer className="lp_footer">
                 <div className="lp_container lp_footer_inner">
-                    <span>© {new Date().getFullYear()} Carrosselize</span>
+                    <span>© {new Date().getFullYear()} Carrou</span>
                     <span className="lp_footer_muted">Feito por Vitor</span>
                 </div>
             </footer>
