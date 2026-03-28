@@ -8,197 +8,52 @@ export const DOC_W = 1080;
 export const DOC_H = 1350;
 export const STAGE_PADDING = 40;
 
+// Paletas compartilhadas entre todos os templates
+const SHARED_PALETTE_PRESETS: PalettePreset[] = [
+    {
+        id: "shared-ocean",
+        label: "Ocean",
+        description: "Frio, profundo e moderno",
+        palette: { bg: "#0A1628", text: "#E8F4F8", muted: "#7BAFC4", accent: "#00B4D8", accent2: "#0077B6" },
+    },
+    {
+        id: "shared-forest",
+        label: "Forest",
+        description: "Orgânico e denso",
+        palette: { bg: "#0D1F0D", text: "#E8F5E9", muted: "#81C784", accent: "#4CAF50", accent2: "#2E7D32" },
+    },
+    {
+        id: "shared-sunset",
+        label: "Sunset",
+        description: "Quente e vibrante",
+        palette: { bg: "#1A0500", text: "#FFF8F0", muted: "#D4956A", accent: "#FF6B35", accent2: "#F7931A" },
+    },
+    {
+        id: "shared-lavender",
+        label: "Lavender",
+        description: "Suave e criativo",
+        palette: { bg: "#1A0A2E", text: "#F3E8FF", muted: "#C084FC", accent: "#A855F7", accent2: "#7C3AED" },
+    },
+    {
+        id: "shared-rose",
+        label: "Rose",
+        description: "Ousado e expressivo",
+        palette: { bg: "#1A0508", text: "#FFF0F3", muted: "#F9A8B8", accent: "#F43F5E", accent2: "#E11D48" },
+    },
+    {
+        id: "shared-sand",
+        label: "Sand",
+        description: "Macio e premium",
+        palette: { bg: "#F5EFE6", text: "#2C1A0E", muted: "#8B6A4E", accent: "#D4883A", accent2: "#9E5A1F" },
+    },
+];
+
 export const TEMPLATE_PALETTE_PRESETS: Record<TemplateId, PalettePreset[]> = {
-    microBlogBold: [
-        {
-            id: "microblog-cream",
-            label: "Cream",
-            description: "Claro, quente e impactante",
-            palette: {
-                bg: "#FAFAF8",
-                text: "#111111",
-                muted: "#777777",
-                accent: "#D4622A",
-                accent2: "#1A1A1A",
-            },
-        },
-        {
-            id: "microblog-night",
-            label: "Night",
-            description: "Escuro com acento vibrante",
-            palette: {
-                bg: "#111111",
-                text: "#F5F5F5",
-                muted: "#888888",
-                accent: "#E07A3C",
-                accent2: "#333333",
-            },
-        },
-        {
-            id: "microblog-cobalt",
-            label: "Cobalt",
-            description: "Profissional e direto",
-            palette: {
-                bg: "#F0F4FF",
-                text: "#0F1C3F",
-                muted: "#5566AA",
-                accent: "#2555E8",
-                accent2: "#0F1C3F",
-            },
-        },
-    ],
-    editorial3D: [
-        {
-            id: "editorial-aqua",
-            label: "Abyss",
-            description: "Frio, tridimensional e escuro",
-            palette: {
-                bg: "#0F1720",
-                text: "#E6FCFF",
-                muted: "#8FB7BE",
-                accent: "#2DD4D7",
-                accent2: "#0E7490",
-            },
-        },
-        {
-            id: "editorial-lilac",
-            label: "Lilac",
-            description: "Mais experimental",
-            palette: {
-                bg: "#F4F2FF",
-                text: "#221B3A",
-                muted: "#7A7396",
-                accent: "#6D5EF8",
-                accent2: "#EC4899",
-            },
-        },
-        {
-            id: "editorial-sand",
-            label: "Sand",
-            description: "Macio e premium",
-            palette: {
-                bg: "#FAF4EC",
-                text: "#3B2F2F",
-                muted: "#8A7469",
-                accent: "#C08457",
-                accent2: "#6B7280",
-            },
-        },
-    ],
-    glassEditorial: [
-        {
-            id: "glass-storm",
-            label: "Storm",
-            description: "Frio, jornalístico e denso",
-            palette: {
-                bg: "#1A232A",
-                text: "#F7FAFC",
-                muted: "#C7D0D9",
-                accent: "#8FB7BE",
-                accent2: "#C08A5C",
-            },
-        },
-        {
-            id: "glass-ember",
-            label: "Ember",
-            description: "Mais quente e dramático",
-            palette: {
-                bg: "#221C1A",
-                text: "#FFF8F2",
-                muted: "#D9C8BC",
-                accent: "#E8A15B",
-                accent2: "#7A3E1D",
-            },
-        },
-        {
-            id: "glass-frost",
-            label: "Frost",
-            description: "Claro e documental",
-            palette: {
-                bg: "#E9EEF1",
-                text: "#17212B",
-                muted: "#5F7181",
-                accent: "#6A8CA5",
-                accent2: "#A66C4A",
-            },
-        },
-    ],
-    luxuryMinimal: [
-        {
-            id: "luxury-gold",
-            label: "Gold",
-            description: "Clássico premium",
-            palette: {
-                bg: "#F0EBE1",
-                text: "#1A1208",
-                muted: "#7A6A55",
-                accent: "#C2922A",
-                accent2: "#8B4513",
-            },
-        },
-        {
-            id: "luxury-noir",
-            label: "Noir",
-            description: "Luxo mais escuro",
-            palette: {
-                bg: "#161616",
-                text: "#F6F1E8",
-                muted: "#B8AFA0",
-                accent: "#D4A64A",
-                accent2: "#8B5E3C",
-            },
-        },
-        {
-            id: "luxury-rose",
-            label: "Rose",
-            description: "Suave e sofisticado",
-            palette: {
-                bg: "#F8F2EF",
-                text: "#2B1D1A",
-                muted: "#8E746A",
-                accent: "#C87B6A",
-                accent2: "#9A5B4F",
-            },
-        },
-    ],
-    streetwearPro: [
-        {
-            id: "streetwear-fire",
-            label: "Fire",
-            description: "Contraste alto e energia",
-            palette: {
-                bg: "#0D0D0D",
-                text: "#FFFFFF",
-                muted: "#A3A3A3",
-                accent: "#FF5500",
-                accent2: "#FFD600",
-            },
-        },
-        {
-            id: "streetwear-neon",
-            label: "Neon",
-            description: "Mais urbano e vibrante",
-            palette: {
-                bg: "#050816",
-                text: "#F8FAFC",
-                muted: "#94A3B8",
-                accent: "#22D3EE",
-                accent2: "#F43F5E",
-            },
-        },
-        {
-            id: "streetwear-lime",
-            label: "Lime",
-            description: "Agressivo e moderno",
-            palette: {
-                bg: "#101010",
-                text: "#F5F5F5",
-                muted: "#B3B3B3",
-                accent: "#A3E635",
-                accent2: "#F97316",
-            },
-        },
-    ],
+    microBlogBold: SHARED_PALETTE_PRESETS,
+    editorial3D: SHARED_PALETTE_PRESETS,
+    glassEditorial: SHARED_PALETTE_PRESETS,
+    luxuryMinimal: SHARED_PALETTE_PRESETS,
+    streetwearPro: SHARED_PALETTE_PRESETS,
 };
 
 const USE_FIREBASE_EMULATORS = import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true";
