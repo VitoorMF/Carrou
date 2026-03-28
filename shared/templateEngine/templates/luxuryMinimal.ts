@@ -159,7 +159,7 @@ function buildContent(slideIndex: number, copy: TemplateBuildParams["copy"], pal
             id: `step_${slideIndex}`,
             type: "text",
             x: MARGIN,
-            y: 120,
+            y: 100,
             text: stepLabel,
             fill: withAlpha(palette.muted, 0.5),
             fontSize: 13,
@@ -176,7 +176,7 @@ function buildContent(slideIndex: number, copy: TemplateBuildParams["copy"], pal
             id: `accent_line_${slideIndex}`,
             type: "path",
             x: MARGIN,
-            y: 148,
+            y: 128,
             data: "M0,0 L48,0 L48,1.5 L0,1.5 Z",
             fill: palette.accent,
             opacity: 0.7,
@@ -186,10 +186,10 @@ function buildContent(slideIndex: number, copy: TemplateBuildParams["copy"], pal
             id: `heading_${slideIndex}`,
             type: "text",
             x: MARGIN,
-            y: 280,
+            y: 240,
             text: heading,
             fill: palette.text,
-            fontSize: heading.length > 40 ? 44 : 52,
+            fontSize: heading.length > 40 ? 42 : 48,
             fontFamily: "Playfair Display",
             fontStyle: "bold",
             width: CONTENT_W,
@@ -203,7 +203,7 @@ function buildContent(slideIndex: number, copy: TemplateBuildParams["copy"], pal
             id: `separator_${slideIndex}`,
             type: "path",
             x: MARGIN,
-            y: 540,
+            y: 480,
             data: `M0,0 L${CONTENT_W},0 L${CONTENT_W},1 L0,1 Z`,
             fill: withAlpha(palette.muted, 0.2),
             opacity: 1,
@@ -213,7 +213,7 @@ function buildContent(slideIndex: number, copy: TemplateBuildParams["copy"], pal
             id: `support_${slideIndex}`,
             type: "text",
             x: MARGIN,
-            y: 580,
+            y: 520,
             text: support,
             fill: withAlpha(palette.text, 0.65),
             fontSize: 26,
@@ -228,15 +228,15 @@ function buildContent(slideIndex: number, copy: TemplateBuildParams["copy"], pal
     ];
 
     // Extras com traço elegante
-    copy.extras.slice(0, 3).forEach((extra, index) => {
+    copy.extras.slice(0, 4).forEach((extra, index) => {
         elements.push({
             id: `extra_${slideIndex}_${index}`,
             type: "text",
             x: MARGIN,
-            y: 790 + index * 52,
+            y: 740 + index * 58,
             text: `—  ${truncateText(extra, 70)}`,
             fill: withAlpha(palette.text, 0.48),
-            fontSize: 22,
+            fontSize: 24,
             fontFamily: "Manrope",
             fontStyle: "normal",
             width: 700,
@@ -246,6 +246,35 @@ function buildContent(slideIndex: number, copy: TemplateBuildParams["copy"], pal
             opacity: 1,
         });
     });
+
+    // Âncora no rodapé
+    elements.push(
+        {
+            id: `bottom_rule_${slideIndex}`,
+            type: "path",
+            x: MARGIN,
+            y: 1240,
+            data: `M0,0 L${CONTENT_W},0 L${CONTENT_W},1 L0,1 Z`,
+            fill: withAlpha(palette.muted, 0.12),
+            opacity: 1,
+        },
+        {
+            id: `page_num_${slideIndex}`,
+            type: "text",
+            x: MARGIN,
+            y: 1268,
+            text: stepLabel,
+            fill: withAlpha(palette.muted, 0.3),
+            fontSize: 13,
+            fontFamily: "Manrope",
+            fontStyle: "bold",
+            width: CONTENT_W,
+            align: "right",
+            lineHeight: 1,
+            letterSpacing: 2,
+            opacity: 1,
+        }
+    );
 
     return elements;
 }

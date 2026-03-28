@@ -2,16 +2,16 @@ import { DOC_H, DOC_W, truncateText, withAlpha } from "../shared";
 import type { CarouselElement, TemplateBuildParams } from "../types";
 
 
-function buildEditorialPrompt(heading: string) {
+function buildCreatorPrompt(heading: string) {
     return [
-        `realistic editorial photography about ${heading || "design communication"}`,
-        "neutral warm tones",
-        "fashion/art direction",
-        "cinematic natural light",
-        "high-end instagram visual",
+        `realistic workspace photography about ${heading || "content creation and education"}`,
+        "bright natural light",
+        "clean minimal workspace or teaching environment",
+        "warm neutral tones, white and beige surfaces",
+        "high contrast, editorial style",
         "vertical composition 4:5",
         "space for text overlay",
-        "clean photographic background",
+        "modern professional aesthetic",
         "not a poster, not a magazine cover, not a flyer",
         "no text, no typography, no letters, no words, no logo, no watermark, no caption",
         "no headline printed in the scene",
@@ -34,14 +34,15 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
     const surface = palette.bg;
     const textPrimary = palette.text;
     const textMuted = palette.muted;
+    const accent = palette.accent;
     const accent2 = palette.accent2;
 
-    // Text on photo overlays must contrast with the dark gradient — always light
-    const photoText = isLightHex(palette.text) ? palette.text : "#FFFFFF";
+    const photoText = "#FFFFFF";
+    const slideNum = String(slideIndex + 1).padStart(2, "0");
     const heading = truncateText(copy.heading || "Você pensa no que vai dizer", imageLayout ? 74 : 80);
     const support = truncateText(
         copy.support || "Design não é só estética. É sobre comunicar com clareza, intenção e consistência visual.",
-        imageLayout ? 170 : 220
+        imageLayout ? 160 : 220
     );
     const signature = "MARIANA REIS  |  DESIGNER  •  DESIGN COM PROPÓSITO";
 
@@ -53,12 +54,13 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
             y: 0,
             width: DOC_W,
             height: DOC_H,
-            fill: imageLayout ? surface : role === "cta" ? accent2 : surface,
+            fill: imageLayout ? "#000000" : role === "cta" ? accent2 : surface,
             opacity: 1,
         },
     ];
 
     if (imageLayout) {
+        // Image slides: photo full-bleed with light top bar + text at bottom
         elements.push(
             {
                 id: `hero_${slideIndex}`,
@@ -67,112 +69,199 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
                 y: 0,
                 width: DOC_W,
                 height: DOC_H,
-                prompt: buildEditorialPrompt(copy.heading),
+                prompt: buildCreatorPrompt(copy.heading),
                 fit: "cover",
                 opacity: 1,
             },
+            // Dark gradient at bottom for text legibility
             {
-                id: `overlay_${slideIndex}`,
+                id: `overlay_bottom_${slideIndex}`,
                 type: "gradientRect",
                 x: 0,
-                y: 0,
+                y: 600,
                 width: DOC_W,
-                height: DOC_H,
+                height: DOC_H - 600,
                 kind: "linear",
                 start: { x: 0, y: 0 },
-                end: { x: 0, y: DOC_H },
+                end: { x: 0, y: DOC_H - 600 },
                 stops: [
-                    0, "rgba(0,0,0,0.62)",
-                    0.32, "rgba(0,0,0,0.46)",
-                    0.58, "rgba(0,0,0,0.26)",
-                    0.8, "rgba(0,0,0,0.08)",
-                    1, "rgba(0,0,0,0)",
+                    0, "rgba(0,0,0,0)",
+                    0.25, "rgba(0,0,0,0.55)",
+                    0.6, "rgba(0,0,0,0.82)",
+                    1, "rgba(0,0,0,0.92)",
                 ],
                 opacity: 1,
             },
+            // White top bar
             {
-                id: `overlay_text_zone_${slideIndex}`,
-                type: "gradientRect",
+                id: `top_bar_${slideIndex}`,
+                type: "path",
                 x: 0,
                 y: 0,
-                width: 860,
-                height: DOC_H,
-                kind: "linear",
-                start: { x: 0, y: 0 },
-                end: { x: 860, y: 0 },
-                stops: [
-                    0, "rgba(0,0,0,0.62)",
-                    0.32, "rgba(0,0,0,0.46)",
-                    0.58, "rgba(0,0,0,0.26)",
-                    0.8, "rgba(0,0,0,0.08)",
-                    1, "rgba(0,0,0,0)",
-                ],
+                data: `M0,0 L${DOC_W},0 L${DOC_W},110 L0,110 Z`,
+                fill: "#FFFFFF",
+                opacity: 0.94,
+            },
+            // Brand/mode tag
+            {
+                id: `mode_tag_${slideIndex}`,
+                type: "text",
+                x: 72,
+                y: 52,
+                text: role === "hook" ? "ABERTURA" : role === "cta" ? "VIRADA" : `PONTO ${slideIndex}`,
+                fill: accent,
+                fontSize: 16,
+                fontFamily: "Sora",
+                fontStyle: "bold",
+                width: 300,
+                align: "left",
+                lineHeight: 1,
+                letterSpacing: 2,
                 opacity: 1,
             },
+            // Slide number top right
+            {
+                id: `slide_num_${slideIndex}`,
+                type: "text",
+                x: DOC_W - 160,
+                y: 40,
+                text: slideNum,
+                fill: accent,
+                fontSize: 32,
+                fontFamily: "Sora",
+                fontStyle: "bold",
+                width: 100,
+                align: "right",
+                lineHeight: 1,
+                letterSpacing: 1,
+                opacity: 0.9,
+            },
+            // Orange accent bar above heading
+            {
+                id: `accent_bar_${slideIndex}`,
+                type: "path",
+                x: 72,
+                y: role === "hook" ? 720 : 580,
+                data: `M0,0 L160,0 L160,6 L0,6 Z`,
+                fill: accent,
+                opacity: 1,
+            },
+            // Heading
             {
                 id: `heading_${slideIndex}`,
                 type: "text",
-                x: 84,
-                y: role === "hook" ? 770 : 630,
+                x: 72,
+                y: role === "hook" ? 740 : 600,
                 text: heading,
                 fill: photoText,
-                fontSize: role === "hook" ? 52 : 48,
+                fontSize: role === "hook" ? 58 : 52,
                 fontFamily: "Montserrat",
-                fontStyle: "normal",
-                width: 660,
+                fontStyle: "bold",
+                width: 700,
                 align: "left",
-                lineHeight: 1.05,
-                letterSpacing: -0.4,
+                lineHeight: 1.02,
+                letterSpacing: -0.5,
                 opacity: 1,
             },
+            // Support text
             {
                 id: `support_${slideIndex}`,
                 type: "text",
-                x: 84,
-                y: role === "hook" ? 1010 : 860,
+                x: 72,
+                y: role === "hook" ? 1020 : 880,
                 text: support,
-                fill: withAlpha(photoText, 0.9),
-                fontSize: 29,
+                fill: withAlpha(photoText, 0.84),
+                fontSize: 28,
                 fontFamily: "Manrope",
                 fontStyle: "normal",
-                width: 600,
+                width: 640,
                 align: "left",
-                lineHeight: 1.24,
+                lineHeight: 1.28,
                 letterSpacing: 0,
                 opacity: 1,
             }
         );
     } else {
+        // Content slides: clean white with left accent bar
+        const ctaText = role === "cta" ? (isLightHex(accent2) ? "#111111" : "#FFFFFF") : textPrimary;
+        const ctaMuted = role === "cta" ? withAlpha(ctaText, 0.68) : textMuted;
+
         elements.push(
+            // Left accent bar
+            {
+                id: `accent_left_${slideIndex}`,
+                type: "path",
+                x: 0,
+                y: 0,
+                data: `M0,0 L8,0 L8,${DOC_H} L0,${DOC_H} Z`,
+                fill: accent,
+                opacity: 1,
+            },
+            // Mode tag (top left)
+            {
+                id: `mode_tag_${slideIndex}`,
+                type: "text",
+                x: 72,
+                y: 52,
+                text: role === "hook" ? "ABERTURA" : role === "cta" ? "VIRADA" : `PONTO ${slideIndex}`,
+                fill: accent,
+                fontSize: 15,
+                fontFamily: "Sora",
+                fontStyle: "bold",
+                width: 260,
+                align: "left",
+                lineHeight: 1,
+                letterSpacing: 2.2,
+                opacity: 1,
+            },
+            // Slide number top right
+            {
+                id: `slide_num_${slideIndex}`,
+                type: "text",
+                x: DOC_W - 160,
+                y: 40,
+                text: slideNum,
+                fill: ctaText,
+                fontSize: 32,
+                fontFamily: "Sora",
+                fontStyle: "bold",
+                width: 100,
+                align: "right",
+                lineHeight: 1,
+                letterSpacing: 1,
+                opacity: 0.22,
+            },
+            // Heading
             {
                 id: `heading_${slideIndex}`,
                 type: "text",
-                x: 250,
-                y: role === "cta" ? 300 : 340,
+                x: 72,
+                y: role === "cta" ? 280 : 320,
                 text: heading,
-                fill: role === "cta" ? textPrimary : textPrimary,
-                fontSize: role === "cta" ? 64 : 60,
+                fill: ctaText,
+                fontSize: role === "cta" ? 68 : 62,
                 fontFamily: "Montserrat",
-                fontStyle: "normal",
-                width: 600,
+                fontStyle: "bold",
+                width: 650,
                 align: "left",
-                lineHeight: 1.08,
-                letterSpacing: -0.3,
+                lineHeight: 1.04,
+                letterSpacing: -0.4,
                 opacity: 1,
             },
+            // Support text
             {
                 id: `support_${slideIndex}`,
                 type: "text",
-                x: 270,
-                y: role === "cta" ? 700 : 760,
+                x: 72,
+                y: role === "cta" ? 720 : 760,
                 text: support,
-                fill: withAlpha(textMuted, 0.86),
+                fill: ctaMuted,
                 fontSize: 30,
                 fontFamily: "Manrope",
                 fontStyle: "normal",
-                width: 540,
+                width: 580,
                 align: "left",
-                lineHeight: 1.32,
+                lineHeight: 1.34,
                 letterSpacing: 0,
                 opacity: 1,
             }
@@ -180,19 +269,22 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
     }
 
     copy.extras.slice(0, imageLayout ? 2 : 4).forEach((extra, index) => {
+        const numLabel = String(index + 1).padStart(2, "0");
         elements.push({
             id: `extra_${slideIndex}_${index}`,
             type: "text",
-            x: imageLayout ? 84 : 270,
-            y: imageLayout ? 1120 + index * 46 : 960 + index * 50,
+            x: 72,
+            y: imageLayout ? 1130 + index * 50 : 980 + index * 54,
             text: imageLayout
-                ? truncateText(extra, 62)
-                : `✓ ${truncateText(extra, 52)}`,
-            fill: imageLayout ? withAlpha(photoText, 0.84) : withAlpha(textPrimary, 0.92),
+                ? truncateText(extra, 60)
+                : `${numLabel}. ${truncateText(extra, 52)}`,
+            fill: imageLayout
+                ? withAlpha(photoText, 0.82)
+                : withAlpha(palette.text, role === "cta" ? 0.9 : 0.88),
             fontSize: imageLayout ? 24 : 26,
             fontFamily: "Manrope",
             fontStyle: "normal",
-            width: imageLayout ? 620 : 520,
+            width: imageLayout ? 640 : 560,
             align: "left",
             lineHeight: 1.18,
             letterSpacing: 0,
@@ -204,37 +296,20 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
         {
             id: `signature_${slideIndex}`,
             type: "text",
-            x: 84,
-            y: 1288,
+            x: 72,
+            y: 1294,
             text: signature,
-            fill: imageLayout ? withAlpha(photoText, 0.6) : withAlpha(textMuted, 0.72),
+            fill: imageLayout ? withAlpha(photoText, 0.56) : withAlpha(textMuted, 0.68),
             fontSize: 11,
             fontFamily: "Sora",
             fontStyle: "normal",
-            width: 920,
+            width: 940,
             align: "left",
             lineHeight: 1,
             letterSpacing: 2.2,
             opacity: 1,
-        },
-        {
-            id: `mode_tag_${slideIndex}`,
-            type: "text",
-            x: 84,
-            y: 78,
-            text: role === "hook" ? "ABERTURA" : role === "cta" ? "VIRADA" : `PONTO ${slideIndex}`,
-            fill: imageLayout ? withAlpha(photoText, 0.86) : withAlpha(textMuted, 0.72),
-            fontSize: 15,
-            fontFamily: "Sora",
-            fontStyle: "bold",
-            width: 260,
-            align: "left",
-            lineHeight: 1,
-            letterSpacing: 1.4,
-            opacity: 1,
         }
     );
-
 
     return elements.slice(0, 20);
 }

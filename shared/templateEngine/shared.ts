@@ -33,11 +33,11 @@ const DESIGN_PALETTES: Record<TemplateId, ResolvedPalette> = {
         accent2: "#C08A5C",
     },
     microBlogBold: {
-        bg: "#F5F5F0",
-        text: "#0A0A0A",
-        muted: "#555555",
-        accent: "#2563EB",
-        accent2: "#DC2626",
+        bg: "#FAFAF8",
+        text: "#111111",
+        muted: "#777777",
+        accent: "#D4622A",
+        accent2: "#1A1A1A",
     },
 };
 
