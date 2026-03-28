@@ -157,6 +157,7 @@
     justify-content: space-between;
     align-items: flex-start;
     gap: 14px;
+    margin-bottom: 20px;
 }
 
 .billing_section_head p {
@@ -275,6 +276,108 @@
 .billing_faq_grid p {
     margin-top: 8px;
 }
+
+/* ── Date filters ── */
+.billing_date_filters {
+    display: flex;
+    gap: 6px;
+}
+
+.billing_date_filter {
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid #e6e8ee;
+    background: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.billing_date_filter:hover {
+    border-color: #d1d5db;
+    color: #111827;
+}
+
+.billing_date_filter.is-active {
+    background: #111827;
+    border-color: #111827;
+    color: #fff;
+}
+
+.billing_empty {
+    font-size: 13px;
+    color: #9ca3af;
+    padding: 16px 0;
+}
+
+/* ── Summary card ── */
+.billing_summary {
+    display: flex;
+    align-items: center;
+    background: #f9fafb;
+    border: 1px solid #e6e8ee;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 12px;
+}
+
+.billing_summary_stat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.billing_summary_stat strong {
+    font-size: 28px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1;
+}
+
+.billing_summary_stat span {
+    font-size: 12px;
+    color: #6b7280;
+    text-align: center;
+}
+
+.billing_summary_divider {
+    width: 1px;
+    height: 40px;
+    background: #e6e8ee;
+    flex-shrink: 0;
+}
+
+/* ── Toggle ── */
+.billing_history_toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+    padding: 4px 0;
+    margin-bottom: 4px;
+    transition: color 0.15s;
+}
+
+.billing_history_toggle:hover { color: #111827; }
+
+.billing_toggle_chevron {
+    font-size: 16px;
+    display: inline-block;
+    transform: rotate(90deg);
+    transition: transform 0.2s ease;
+    line-height: 1;
+}
+
+.billing_toggle_chevron.is-open { transform: rotate(270deg); }
 
 /* ── Histórico ── */
 .billing_history {

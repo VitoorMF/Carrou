@@ -116,8 +116,12 @@ function CanvasImageElement({
         const cx = boxWidth / 2;
         const cy = boxHeight / 2;
 
-        // Pulso suave: 0.18 → 0.42 → 0.18
-        const pulse = 0.18 + Math.sin(loadingPhase * Math.PI) * 0.24;
+        // Glow viajante: cada barra peak com 1/3 de offset em relação à anterior
+        const barGlow = (i: number) => {
+            const adjusted = (loadingPhase - i / 3 + 1) % 1;
+            return 0.08 + Math.pow(Math.sin(adjusted * Math.PI), 1.5) * 0.72;
+        };
+        const pulse = barGlow(0); // usado na borda
 
         return (
             <Group

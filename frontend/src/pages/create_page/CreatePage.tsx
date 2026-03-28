@@ -43,13 +43,31 @@ function friendlyError(message?: string): string {
     return "Erro ao gerar carrossel. Tente novamente.";
 }
 
+const GEN_STEPS = [
+    "Analisando seu prompt…",
+    "Estruturando os slides…",
+    "Aplicando o layout…",
+    "Finalizando…",
+];
+
 export default function CreatePage() {
     const { user } = useAuth();
     const [prompt, setPrompt] = useState("");
 
     const [layout, setLayout] = useState<TemplateId | null>(null);
     const [loading, setLoading] = useState(false);
+    const [genStep, setGenStep] = useState(0);
     const [err, setErr] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!loading) { setGenStep(0); return; }
+        const timers = [
+            setTimeout(() => setGenStep(1), 3000),
+            setTimeout(() => setGenStep(2), 8000),
+            setTimeout(() => setGenStep(3), 14000),
+        ];
+        return () => timers.forEach(clearTimeout);
+    }, [loading]);
 
     useEffect(() => {
         const pending = localStorage.getItem("carrosselize_pending_prompt");
@@ -222,43 +240,51 @@ export default function CreatePage() {
                     </div>
 
                     <div className="primaryActions">
-                        <button
-                            className="primaryBtn"
-                            onClick={handleCreate}
-                            disabled={
-                                loading ||
-                                !prompt.trim() ||
-                                (userData?.trialUsed !== false && (userData?.creditsBalance ?? 0) === 0)
-                            }
-                        >
-                            {loading ? (
-                                <>
-                                    <span className="spinner" />
-                                    Gerando…
-                                </>
-                            ) : userData?.trialUsed !== false && (userData?.creditsBalance ?? 0) === 0 ? (
-                                <span>Sem créditos</span>
-                            ) : userData?.trialUsed === false ? (
-                                <span>Gerar carrossel grátis</span>
-                            ) : (
-                                <div className="btnLabel">
-                                    <span>Gerar carrossel</span>
-                                    <div className="creditsCost">
-                                        <span>-1</span>
-                                        <img src={token} alt="Créditos" />
-                                    </div>
+                        {loading ? (
+                            <div className="genLoadingBlock">
+                                <div className="genLoadingInner">
+                                    <span className="genDot" />
+                                    <span className="genStepText" key={genStep}>
+                                        {GEN_STEPS[genStep]}
+                                    </span>
                                 </div>
-                            )}
-                        </button>
+                                <div className="genProgressBar" />
+                            </div>
+                        ) : (
+                            <>
+                                <button
+                                    className="primaryBtn"
+                                    onClick={handleCreate}
+                                    disabled={
+                                        !prompt.trim() ||
+                                        (userData?.trialUsed !== false && (userData?.creditsBalance ?? 0) === 0)
+                                    }
+                                >
+                                    {userData?.trialUsed !== false && (userData?.creditsBalance ?? 0) === 0 ? (
+                                        <span>Sem créditos</span>
+                                    ) : userData?.trialUsed === false ? (
+                                        <span>Gerar carrossel grátis</span>
+                                    ) : (
+                                        <div className="btnLabel">
+                                            <span>Gerar carrossel</span>
+                                            <div className="creditsCost">
+                                                <span>-1</span>
+                                                <img src={token} alt="Créditos" />
+                                            </div>
+                                        </div>
+                                    )}
+                                </button>
 
-                        <button
-                            type="button"
-                            className="secondaryBtn"
-                            onClick={handleImprovePrompt}
-                            disabled={loading || optimizing || !prompt.trim()}
-                        >
-                            {optimizing ? "Otimizando..." : "Otimizar prompt"}
-                        </button>
+                                <button
+                                    type="button"
+                                    className="secondaryBtn"
+                                    onClick={handleImprovePrompt}
+                                    disabled={optimizing || !prompt.trim()}
+                                >
+                                    {optimizing ? "Otimizando..." : "Otimizar prompt"}
+                                </button>
+                            </>
+                        )}
                     </div>
 
                 </div>

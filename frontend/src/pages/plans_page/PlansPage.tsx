@@ -76,6 +76,8 @@ export default function BillingPage() {
     const [checkoutLoadingId, setCheckoutLoadingId] = useState<string | null>(null);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
     const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
+    const [showHistory, setShowHistory] = useState(false);
+    const [dateFilter, setDateFilter] = useState<"7d" | "30d" | "month" | "all">("all");
 
     useEffect(() => {
         if (!user) {
@@ -106,7 +108,7 @@ export default function BillingPage() {
         const q = query(
             collection(db, "users", user.uid, "creditTransactions"),
             orderBy("createdAt", "desc"),
-            limit(20)
+            limit(50)
         );
         const unsub = onSnapshot(q, (snap) => {
             setTransactions(
@@ -120,6 +122,19 @@ export default function BillingPage() {
         () => userData?.creditsBalance ?? 0,
         [userData]
     );
+
+    const filteredTransactions = useMemo(() => {
+        if (dateFilter === "all") return transactions;
+        const now = new Date();
+        const cutoff = new Date();
+        if (dateFilter === "7d") cutoff.setDate(now.getDate() - 7);
+        else if (dateFilter === "30d") cutoff.setDate(now.getDate() - 30);
+        else if (dateFilter === "month") cutoff.setDate(1), cutoff.setHours(0, 0, 0, 0);
+        return transactions.filter(tx => {
+            const d = tx.createdAt?.toDate();
+            return d && d >= cutoff;
+        });
+    }, [transactions, dateFilter]);
 
     async function handleBuyCredits(productId: string) {
         try {
@@ -208,25 +223,81 @@ export default function BillingPage() {
                                     <p className="billing_section_kicker">Histórico</p>
                                     <h2>Extrato de créditos</h2>
                                 </div>
+                                {/* Date filters */}
+                                <div className="billing_date_filters">
+                                    {(["7d", "30d", "month", "all"] as const).map((f) => (
+                                        <button
+                                            key={f}
+                                            type="button"
+                                            className={`billing_date_filter ${dateFilter === f ? "is-active" : ""}`}
+                                            onClick={() => setDateFilter(f)}
+                                        >
+                                            {{ "7d": "7 dias", "30d": "30 dias", "month": "Este mês", "all": "Tudo" }[f]}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
-                            <div className="billing_history">
-                                {transactions.map((tx) => (
-                                    <div key={tx.id} className="billing_history_row">
-                                        <div className={`billing_history_dot billing_history_dot_${tx.type}`} />
-                                        <div className="billing_history_info">
-                                            <span className="billing_history_reason">{reasonLabel(tx.reason)}</span>
-                                            <span className="billing_history_date">{formatDate(tx.createdAt)}</span>
-                                        </div>
-                                        <div className="billing_history_amount_col">
-                                            <span className={`billing_history_amount billing_history_amount_${tx.type}`}>
-                                                {tx.type === "purchase" ? "+" : ""}{tx.amount}
-                                            </span>
-                                            <span className="billing_history_balance">saldo: {tx.balanceAfter}</span>
-                                        </div>
-                                    </div>
-                                ))}
+                            {/* Summary card */}
+                            <div className="billing_summary">
+                                <div className="billing_summary_stat">
+                                    <strong>
+                                        {filteredTransactions.filter(t => t.type === "debit").reduce((acc, t) => acc + Math.abs(t.amount), 0)}
+                                    </strong>
+                                    <span>créditos usados</span>
+                                </div>
+                                <div className="billing_summary_divider" />
+                                <div className="billing_summary_stat">
+                                    <strong>
+                                        {filteredTransactions.filter(t => t.reason === "generate_carousel").length}
+                                    </strong>
+                                    <span>carrosseis gerados</span>
+                                </div>
+                                <div className="billing_summary_divider" />
+                                <div className="billing_summary_stat">
+                                    <strong>
+                                        {filteredTransactions.filter(t => t.reason === "generate_image").length}
+                                    </strong>
+                                    <span>imagens geradas</span>
+                                </div>
                             </div>
+
+                            {/* Toggle */}
+                            {filteredTransactions.length > 0 ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="billing_history_toggle"
+                                        onClick={() => setShowHistory(v => !v)}
+                                    >
+                                        {showHistory ? "Ocultar extrato" : "Ver extrato completo"}
+                                        <span className={`billing_toggle_chevron ${showHistory ? "is-open" : ""}`}>›</span>
+                                    </button>
+
+                                    {/* Collapsible list */}
+                                    {showHistory && (
+                                        <div className="billing_history">
+                                            {filteredTransactions.map((tx) => (
+                                                <div key={tx.id} className="billing_history_row">
+                                                    <div className={`billing_history_dot billing_history_dot_${tx.type}`} />
+                                                    <div className="billing_history_info">
+                                                        <span className="billing_history_reason">{reasonLabel(tx.reason)}</span>
+                                                        <span className="billing_history_date">{formatDate(tx.createdAt)}</span>
+                                                    </div>
+                                                    <div className="billing_history_amount_col">
+                                                        <span className={`billing_history_amount billing_history_amount_${tx.type}`}>
+                                                            {tx.type === "purchase" ? "+" : ""}{tx.amount}
+                                                        </span>
+                                                        <span className="billing_history_balance">saldo: {tx.balanceAfter}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <p className="billing_empty">Nenhum registro neste período.</p>
+                            )}
                         </section>
                     )}
 
