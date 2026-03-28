@@ -217,6 +217,7 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
                     prompt: splitHeroPrompt,
                     fit: "cover",
                     opacity: 0.92,
+                    draggable: false,
                 }
                 : {
                     id: `hero_${slideIndex}`,
@@ -228,6 +229,7 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
                     prompt: `streetwear editorial portrait for: ${copy.heading || "modern creator"}. bold contrast, dramatic lighting.`,
                     fit: "cover",
                     opacity: 0.9,
+                    draggable: false,
                 },
             useSplitHero
                 ? {

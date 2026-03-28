@@ -461,6 +461,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(
         }
 
         function isMovable(el: El) {
+            if ((el as any).draggable === false) return false;
             return el.type === "text" || el.type === "image";
         }
 
