@@ -64,6 +64,7 @@ body,
 .topbar_right {
     justify-self: end;
     justify-content: flex-end;
+    position: relative;
 }
 
 .topbar_zoom_cluster {
@@ -958,6 +959,80 @@ body,
     display: none;
 }
 
+.export_dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 260px;
+    padding: 8px;
+    border-radius: 12px;
+    background: var(--color-surface, #fff);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08);
+    border: 1px solid var(--color-border, #e5e7eb);
+}
+
+.export_dropdown .export_option_btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s;
+    width: 100%;
+}
+
+.export_dropdown .export_option_btn:hover {
+    background: var(--color-surface-hover, #f3f4f6);
+}
+
+.export_dropdown .export_option_btn:active {
+    transform: scale(0.97);
+    background: var(--color-surface-hover, #f3f4f6);
+}
+
+.export_dropdown .export_option_btn:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.export_dropdown .export_option_icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--color-text, #1e293b);
+}
+
+.export_dropdown .export_option_icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.export_dropdown .export_option_info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.export_dropdown .export_option_info strong {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text, #1e293b);
+}
+
+.export_dropdown .export_option_info span {
+    font-size: 12px;
+    color: var(--color-muted, #6b7280);
+}
+
 .mobile_panel_backdrop,
 .mobile_editor_dock {
     display: none;
@@ -1204,7 +1279,7 @@ body,
         bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
         left: 0;
         right: 0;
-        z-index: 35;
+        z-index: 30;
         pointer-events: none;
     }
 

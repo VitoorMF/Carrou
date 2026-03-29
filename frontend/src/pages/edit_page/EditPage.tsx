@@ -588,6 +588,7 @@ export default function EditPage() {
                 onResetZoom={resetZoom}
                 onZoomIn={zoomIn}
                 onExportAllSlides={exportAllSlides}
+                onShareSlides={() => void shareAllSlides()}
             />
 
             <div className="editor_workspace">
@@ -703,7 +704,7 @@ export default function EditPage() {
                             </svg>
                         </span>
                         <div className="export_option_info">
-                            <strong>Compartilhar slide atual</strong>
+                            <strong>Compartilhar carrossel</strong>
                             <span>Abre o menu de compartilhamento do celular</span>
                         </div>
                     </button>
