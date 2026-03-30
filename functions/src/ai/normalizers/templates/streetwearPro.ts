@@ -83,7 +83,8 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
 
     const supportW = textOnRight ? 430 : 420;
     const extrasW = textOnRight ? 430 : 500;
-    const splitHeroPrompt = "streetwear editorial portrait, same subject, bold contrast, dramatic lighting, urban fashion campaign, consistent framing for carousel diptych";
+    const heroStyle = "bold commercial photography, dramatic lighting, high contrast";
+    const heroPromptContext = `${heroStyle} | Content: ${copy.heading}. ${copy.support}`;
     const slideNum = String(slideIndex);
 
     const elements: CarouselElement[] = [
@@ -221,7 +222,8 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
                     y: 320,
                     width: 1080 - 108,
                     height: 960,
-                    prompt: splitHeroPrompt,
+                    prompt: heroPromptContext,
+                    promptContext: heroPromptContext,
                     fit: "cover",
                     opacity: 0.92,
                     draggable: false,
@@ -233,7 +235,8 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
                     y: 340,
                     width: 520,
                     height: 920,
-                    prompt: `streetwear editorial portrait for: ${copy.heading || "modern creator"}. bold contrast, dramatic lighting.`,
+                    prompt: heroPromptContext,
+                    promptContext: heroPromptContext,
                     fit: "cover",
                     opacity: 0.9,
                     draggable: false,

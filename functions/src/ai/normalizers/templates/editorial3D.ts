@@ -171,6 +171,7 @@ export function buildEditorial3DTemplate(params: TemplateBuildParams): CarouselE
                 width: 600,
                 height: 600,
                 prompt: buildImagePrompt(copy.heading, accent, accent2),
+                promptContext: `${buildImagePrompt(copy.heading, accent, accent2)} | Content: ${copy.heading}. ${copy.support}`,
                 fit: "contain",
                 opacity: 1,
             }
@@ -345,6 +346,7 @@ export function buildEditorial3DTemplate(params: TemplateBuildParams): CarouselE
                 width: 600,
                 height: 600,
                 prompt: buildImagePrompt(copy.heading, accent, accent2),
+                promptContext: `${buildImagePrompt(copy.heading, accent, accent2)} | Content: ${copy.heading}. ${copy.support}`,
                 fit: "contain",
                 opacity: 1,
             },

@@ -16,7 +16,7 @@ const bucket = admin.storage().bucket();
 const corsHandler = cors({ origin: true });
 
 const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
-const STREETWEAR_SHARED_PROMPT_HINT = "consistent framing for carousel diptych";
+const STREETWEAR_SHARED_PROMPT_HINT = "consistent framing for carousel diptych"; // kept for backwards compat with old carousels
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -81,7 +81,10 @@ function findStreetwearSharedPair(
         && slideIndex >= 0
         && slideIndex <= 3
         && (element?.type === "image" || element?.type === "backgroundImage")
-        && prompt.includes(STREETWEAR_SHARED_PROMPT_HINT);
+        && (
+            String(element?.id ?? "").includes("hero_pair_")
+            || prompt.includes(STREETWEAR_SHARED_PROMPT_HINT)
+        );
 
     if (!isSharedStreetwearHero) return null;
 
@@ -251,7 +254,7 @@ export const generateImageForElement = onRequest(
                     return res.json({ ok: true, src: stableSrc, cached: true });
                 }
 
-                if (!el.prompt) return res.status(400).json({ ok: false, error: "Missing prompt" });
+                if (!el.prompt && !el.promptContext) return res.status(400).json({ ok: false, error: "Missing prompt" });
 
                 if (!isTrialProject) await assertHasCredits(uid, 1);
 
@@ -271,9 +274,30 @@ export const generateImageForElement = onRequest(
 
                 const client = new OpenAI({ apiKey: OPENAI_API_KEY.value() });
 
+                let imagePrompt = String(el.prompt ?? "");
+                const promptContext = String(el.promptContext ?? "").trim();
+                if (promptContext) {
+                    const chatResponse = await client.chat.completions.create({
+                        model: "gpt-4o-mini",
+                        messages: [
+                            {
+                                role: "system",
+                                content: "You are an image prompt writer for Instagram carousel slides. Given a prompt that contains a visual style and slide content, refine it into a single improved image generation prompt that preserves the visual style and is specific to the content. Rules: no people, no faces, no body parts; no text or logos in the image; literal concrete subject related to the content. Return only the refined prompt in English, nothing else.",
+                            },
+                            {
+                                role: "user",
+                                content: promptContext,
+                            },
+                        ],
+                        max_tokens: 150,
+                        temperature: 0.7,
+                    });
+                    imagePrompt = chatResponse.choices[0]?.message?.content?.trim() ?? imagePrompt;
+                }
+
                 const result = await client.images.generate({
                     model: "gpt-image-1",
-                    prompt: el.prompt,
+                    prompt: imagePrompt,
                     size: "1024x1024",
                     output_format: "png",
                 });

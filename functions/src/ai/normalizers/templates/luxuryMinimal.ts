@@ -58,6 +58,7 @@ function buildCover(slideIndex: number, copy: TemplateBuildParams["copy"], palet
             width: DOC_W,
             height: DOC_H,
             prompt: buildEditorialPrompt(copy.heading),
+            promptContext: `${buildEditorialPrompt(copy.heading)} | Content: ${copy.heading}. ${copy.support}`,
             fit: "cover",
             opacity: 1,
         },

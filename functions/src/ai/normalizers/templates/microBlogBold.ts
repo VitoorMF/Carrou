@@ -75,6 +75,7 @@ export function buildMicroBlogBoldTemplate(params: TemplateBuildParams): Carouse
                 width: DOC_W,
                 height: DOC_H,
                 prompt: buildCreatorPrompt(copy.heading),
+                promptContext: `${buildCreatorPrompt(copy.heading)} | Content: ${copy.heading}. ${copy.support}`,
                 fit: "cover",
                 opacity: 1,
             },
