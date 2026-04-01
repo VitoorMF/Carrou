@@ -87,6 +87,8 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
     const heroPromptContext = `${heroStyle} | Content: ${copy.heading}. ${copy.support}`;
     const slideNum = String(slideIndex);
 
+    const pairIndex = slideIndex % 2 === 0 ? slideIndex : slideIndex - 1;
+
     const elements: CarouselElement[] = [
         {
             id: `bg_${slideIndex}`,
@@ -120,9 +122,6 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
             opacity: 1,
         },
 
-
-
-
         // Decorative ring — top-right corner, partially off-screen
         {
             id: `deco_circle_outer_${slideIndex}`,
@@ -142,8 +141,6 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
             fill: bg,
             opacity: 1,
         },
-
-
         {
             id: `top_bar_${slideIndex}`,
             type: "path",
@@ -216,7 +213,7 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
         elements.push(
             useSplitHero
                 ? {
-                    id: `hero_pair_${Math.floor(slideIndex / 2)}`,
+                    id: `hero_${pairIndex}`,
                     type: "image",
                     x: slideIndex % 2 === 0 ? 540 + 54 : -540 + 54,
                     y: 320,
@@ -225,7 +222,7 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
                     prompt: heroPromptContext,
                     promptContext: heroPromptContext,
                     fit: "cover",
-                    opacity: 0.92,
+                    opacity: 1,
                     draggable: false,
                 }
                 : {
@@ -238,7 +235,7 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
                     prompt: heroPromptContext,
                     promptContext: heroPromptContext,
                     fit: "cover",
-                    opacity: 0.9,
+                    opacity: 1,
                     draggable: false,
                 },
             useSplitHero
@@ -437,3 +434,4 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
 
     return elements.slice(0, 20);
 }
+

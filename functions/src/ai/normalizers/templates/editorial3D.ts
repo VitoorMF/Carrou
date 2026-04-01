@@ -6,6 +6,7 @@ import {
     type CarouselElement,
 } from "../shared";
 
+
 function buildImagePrompt(heading: string, accent: string, accent2: string) {
     return [
         `3D cartoon-style object representing ${heading || "creative topic"}`,
@@ -98,10 +99,27 @@ export function buildEditorial3DTemplate(params: TemplateBuildParams): CarouselE
     const accent2 = palette.accent2;
 
     const heading = truncateText(copy.heading || "Editorial 3D", role === "hook" ? 72 : 80);
+    const headingWidth = role === "hook" ? 700 : role === "cta" ? 880 : 650;
+    const fontSize = role === "hook" ? 84 : role === "cta" ? 72 : 60;
+    const charsPerLine = Math.floor(headingWidth / (fontSize * 0.6));
+    const lineCount = Math.ceil(heading.length / charsPerLine);
+    const estimatedHeadingHeight = lineCount * fontSize * 1.12 * 1.3; // 1.3 de margem
+
+    const headingY = role === "hook" ? 170 : role === "cta" ? 180 : 200;
+    const supportY = headingY + estimatedHeadingHeight + 24;
+
+
+
     const support = truncateText(
         copy.support || "Layout com profundidade visual para chamar atenção sem perder legibilidade.",
         role === "cta" ? 200 : 220
     );
+
+    const supportWidth = role === "cta" ? 880 : 650;
+    const supportFontSize = role === "cta" ? 34 : 32;
+    const supportLineHeight = 1.3;
+    const supportHeight = Math.ceil(support.length / Math.floor(supportWidth / (supportFontSize * 0.55))) * supportFontSize * supportLineHeight;
+    const extrasStartY = supportY + supportHeight + 24;
 
     const elements: CarouselElement[] = [
         {
@@ -135,13 +153,13 @@ export function buildEditorial3DTemplate(params: TemplateBuildParams): CarouselE
                 id: `heading_${slideIndex}`,
                 type: "text",
                 x: 96,
-                y: 170,
+                y: headingY,
                 text: heading,
                 fill: text,
                 fontSize: 84,
                 fontFamily: "Sora",
                 fontStyle: "bold",
-                width: 700,
+                width: headingWidth,
                 align: "left",
                 lineHeight: 1.12,
                 letterSpacing: -0.6,
@@ -151,7 +169,7 @@ export function buildEditorial3DTemplate(params: TemplateBuildParams): CarouselE
                 id: `support_${slideIndex}`,
                 type: "text",
                 x: 96,
-                y: 520,
+                y: supportY,
                 text: support,
                 fill: muted,
                 fontSize: 34,
@@ -179,23 +197,24 @@ export function buildEditorial3DTemplate(params: TemplateBuildParams): CarouselE
     } else if (role === "cta") {
         elements.push(
             {
-                id: `arrows_top_${slideIndex}`,
+                id: `arrows_${slideIndex}`,
                 type: "shape",
                 name: "arrows",
                 x: -175,
-                y: 30,
+                y: slideIndex % 2 !== 0 ? 30 : DOC_H - 150,
                 w: 350,
                 h: 150,
                 color: accent,
                 opacity: 1,
                 scale: 1,
             },
+
             buildProfileCard(slideIndex, "cta", bg, accent2),
             {
                 id: `heading_${slideIndex}`,
                 type: "text",
                 x: 96,
-                y: 180,
+                y: headingY,
                 text: heading,
                 fill: text,
                 fontSize: 72,
@@ -211,7 +230,7 @@ export function buildEditorial3DTemplate(params: TemplateBuildParams): CarouselE
                 id: `support_${slideIndex}`,
                 type: "text",
                 x: 96,
-                y: 400,
+                y: supportY,
                 text: support,
                 fill: muted,
                 fontSize: 34,
@@ -230,7 +249,7 @@ export function buildEditorial3DTemplate(params: TemplateBuildParams): CarouselE
                 id: `extra_${slideIndex}_${index}`,
                 type: "text",
                 x: 96,
-                y: 620 + index * 64,
+                y: extrasStartY + index * 64,
                 text: `✓ ${truncateText(extra, 76)}`,
                 fill: muted,
                 fontSize: 32,
@@ -288,13 +307,13 @@ export function buildEditorial3DTemplate(params: TemplateBuildParams): CarouselE
                 id: `heading_${slideIndex}`,
                 type: "text",
                 x: 96,
-                y: 200,
+                y: headingY,
                 text: heading,
                 fill: text,
                 fontSize: 60,
                 fontFamily: "Sora",
                 fontStyle: "bold",
-                width: 650,
+                width: headingWidth,
                 align: "left",
                 lineHeight: 1.1,
                 letterSpacing: -0.5,
@@ -304,7 +323,7 @@ export function buildEditorial3DTemplate(params: TemplateBuildParams): CarouselE
                 id: `support_${slideIndex}`,
                 type: "text",
                 x: 96,
-                y: 360,
+                y: supportY,
                 text: support,
                 fill: muted,
                 fontSize: 32,
@@ -323,7 +342,7 @@ export function buildEditorial3DTemplate(params: TemplateBuildParams): CarouselE
                 id: `extra_${slideIndex}_${index}`,
                 type: "text",
                 x: 96,
-                y: 560 + index * 56,
+                y: extrasStartY + index * 56,
                 text: `• ${truncateText(extra, 70)}`,
                 fill: accent,
                 fontSize: 30,
@@ -355,3 +374,4 @@ export function buildEditorial3DTemplate(params: TemplateBuildParams): CarouselE
 
     return elements.slice(0, 20);
 }
+
