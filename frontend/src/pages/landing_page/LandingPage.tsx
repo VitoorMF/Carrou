@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./LandingPage.css";
 
 import logo from "../../assets/page/landing/logo.svg";
@@ -305,6 +305,18 @@ export function LandingPage() {
                                 </div>
                             ))}
                         </div>
+                    </div>
+                </section>
+
+                <section className="lp_explore_cta">
+                    <div className="lp_container lp_explore_inner">
+                        <div>
+                            <h2 className="lp_explore_title">Explore antes de criar</h2>
+                            <p className="lp_explore_sub">Teste os templates e paletas sem precisar de conta.</p>
+                        </div>
+                        <Link to="/preview" className="btn btn_primary lp_explore_btn">
+                            Ver templates ao vivo →
+                        </Link>
                     </div>
                 </section>
 

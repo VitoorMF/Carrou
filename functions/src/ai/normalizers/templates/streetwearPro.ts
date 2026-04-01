@@ -85,6 +85,7 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
     const extrasW = textOnRight ? 430 : 500;
     const heroStyle = "bold commercial photography, dramatic lighting, high contrast";
     const heroPromptContext = `${heroStyle} | Content: ${copy.heading}. ${copy.support}`;
+    const heroDiptychPrompt = `${heroStyle}, consistent framing for carousel diptych`;
     const slideNum = String(slideIndex);
 
     const pairIndex = slideIndex % 2 === 0 ? slideIndex : slideIndex - 1;
@@ -219,7 +220,7 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
                     y: 320,
                     width: 1080 - 108,
                     height: 960,
-                    prompt: heroPromptContext,
+                    prompt: heroDiptychPrompt,
                     promptContext: heroPromptContext,
                     fit: "cover",
                     opacity: 1,

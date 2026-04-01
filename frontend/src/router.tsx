@@ -7,6 +7,7 @@ import HomePage from "./pages/home_page/HomePage";
 import BillingPage from "./pages/plans_page/PlansPage";
 import ProfilePage from "./pages/profile_page/ProfilePage";
 import LayoutEditor from "./pages/ShapePlayground";
+import TemplatePreview from "./pages/template_preview/TemplatePreview";
 
 export const router = createBrowserRouter([
     {
@@ -22,4 +23,5 @@ export const router = createBrowserRouter([
     { path: "/auth", element: <AuthPage /> },
     { path: "/editor/:projectId", element: <EditPage /> },
     { path: "/playground", element: <LayoutEditor /> },
+    { path: "/preview", element: <TemplatePreview /> },
 ]);

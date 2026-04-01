@@ -169,7 +169,7 @@ export function buildEditorial3DTemplate(params: TemplateBuildParams): CarouselE
                 fontSize: 34,
                 fontFamily: "Manrope",
                 fontStyle: "normal",
-                width: 700,
+                width: 360,
                 align: "left",
                 lineHeight: 1.25,
                 letterSpacing: 0,
