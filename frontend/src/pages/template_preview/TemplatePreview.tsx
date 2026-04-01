@@ -34,7 +34,13 @@ const PALETTE_PRESETS: Record<PaletteKey, { label: string; swatch: string; palet
 
 // string = mesma imagem em todos os slides; string[] = uma por slide
 const DEMO_IMAGE_BY_TEMPLATE: Record<TemplateId, string | string[]> = {
-  streetwearPro: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1080&q=80",
+  streetwearPro: [
+    "https://firebasestorage.googleapis.com/v0/b/carrosselize.firebasestorage.app/o/images%2FstreetWear%2Fprojects-Y1TNivb24RAtw1qawLQU-slides-s3-hero_2.png?alt=media&token=0ed89ea8-2c34-4ad4-802a-5311a5a4e1eb",
+    "https://firebasestorage.googleapis.com/v0/b/carrosselize.firebasestorage.app/o/images%2FstreetWear%2Fprojects-Y1TNivb24RAtw1qawLQU-slides-s3-hero_2.png?alt=media&token=0ed89ea8-2c34-4ad4-802a-5311a5a4e1eb",
+    "https://firebasestorage.googleapis.com/v0/b/carrosselize.firebasestorage.app/o/images%2FstreetWear%2Fprojects-Y1TNivb24RAtw1qawLQU-slides-s1-hero_0.png?alt=media&token=76489979-7c66-4ffd-88b1-64f59282b765",
+    "https://firebasestorage.googleapis.com/v0/b/carrosselize.firebasestorage.app/o/images%2FstreetWear%2Fprojects-Y1TNivb24RAtw1qawLQU-slides-s1-hero_0.png?alt=media&token=76489979-7c66-4ffd-88b1-64f59282b765",
+    "https://firebasestorage.googleapis.com/v0/b/carrosselize.firebasestorage.app/o/images%2FstreetWear%2Fprojects-Y1TNivb24RAtw1qawLQU-slides-s1-hero_0.png?alt=media&token=76489979-7c66-4ffd-88b1-64f59282b765",
+  ],
   editorial3D: [
     "https://firebasestorage.googleapis.com/v0/b/carrosselize.firebasestorage.app/o/images%2Feditorial3d%2Fs1%2Fprojects-AaqWwXPqVJJqRKGCjuCg-slides-s3-hero_2.png?alt=media&token=d76298f5-e229-4309-8987-ba5ae1c127b1",
     "https://firebasestorage.googleapis.com/v0/b/carrosselize.firebasestorage.app/o/images%2Feditorial3d%2Fs3%2Fprojects-OzxmbqNwYak5BABBU2jg-slides-s3-hero_2.png?alt=media&token=145186ef-1831-49e7-8329-a5f9ecae5474",

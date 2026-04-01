@@ -68,11 +68,19 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
     const mainText = textOn(bg);
     const accent = role === "cta" ? palette.accent2 : palette.accent;
 
-    const headingText = truncateText((copy.heading || "Impacto Visual").toUpperCase(), 60);
+    const headingText = truncateText((copy.heading || "Impacto Visual").toUpperCase(), 80);
     const supportText = truncateText(copy.support || "Conteúdo direto, com alto contraste e leitura rápida.", 170);
     const useSplitHero = role !== "cta" && (slideIndex === 0 || slideIndex === 1 || slideIndex === 2 || slideIndex === 3);
     const textOnRight = useSplitHero && slideIndex % 2 === 1;
     const textX = textOnRight ? 560 : 72;
+
+    const HEADING_WIDTH = 500;
+    const longestWordLen = Math.max(...headingText.split(" ").map(w => w.length));
+    let headingFontSize = headingText.length > 22 ? 66 : 76;
+    // Sora Bold uppercase: ~0.58 × fontSize por caractere. Reduz até a maior palavra caber.
+    while (longestWordLen * headingFontSize * 0.58 > HEADING_WIDTH && headingFontSize > 32) {
+        headingFontSize -= 2;
+    }
 
     const supportW = textOnRight ? 430 : 420;
     const extrasW = textOnRight ? 430 : 500;
@@ -152,10 +160,10 @@ export function buildStreetwearProTemplate(params: TemplateBuildParams): Carouse
             y: 340,
             text: headingText,
             fill: mainText,
-            fontSize: headingText.length > 22 ? 66 : 76,
+            fontSize: headingFontSize,
             fontFamily: "Sora",
             fontStyle: "bold",
-            width: 500,
+            width: HEADING_WIDTH,
             align: "left",
             lineHeight: 1.06,
             letterSpacing: -1.8,

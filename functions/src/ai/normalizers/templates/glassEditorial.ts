@@ -260,6 +260,7 @@ function buildFooter(
 function buildCoverElements(
     slideIndex: number,
     heading: string,
+    headingFontSize: number,
     palette: ResolvedPalette
 ): CarouselElement[] {
     const panelY = 392;
@@ -301,10 +302,10 @@ function buildCoverElements(
             y: contentTop + 74,
             text: heading,
             fill: palette.text,
-            fontSize: 72,
+            fontSize: headingFontSize,
             fontFamily: "Sora",
             fontStyle: "bold",
-            width: 690,
+            width: 760,
             align: "left",
             lineHeight: 1.05,
             letterSpacing: -1.2,
@@ -318,6 +319,7 @@ function buildBodyElements(
     slideIndex: number,
     role: TemplateBuildParams["role"],
     heading: string,
+    headingFontSize: number,
     support: string,
     extras: string[],
     palette: ResolvedPalette
@@ -339,10 +341,10 @@ function buildBodyElements(
                 y: contentTop + 10,
                 text: heading,
                 fill: palette.text,
-                fontSize: 64,
+                fontSize: headingFontSize,
                 fontFamily: "Sora",
                 fontStyle: "bold",
-                width: 680,
+                width: 760,
                 align: "left",
                 lineHeight: 1.06,
                 letterSpacing: -1,
@@ -381,7 +383,7 @@ function buildBodyElements(
             fontSize: 64,
             fontFamily: "Sora",
             fontStyle: "bold",
-            width: 680,
+            width: 760,
             align: "left",
             lineHeight: 1.08,
             letterSpacing: -1,
@@ -431,18 +433,34 @@ function buildBodyElements(
 
 export function buildGlassEditorialTemplate(params: TemplateBuildParams): CarouselElement[] {
     const { slideIndex, role, copy, palette } = params;
-    const heading = truncateText(copy.heading || "Glass Editorial", role === "hook" ? 58 : 74);
+    const heading = truncateText(copy.heading || "Glass Editorial", role === "hook" ? 80 : 90);
     const support = truncateText(
         copy.support || "Narrativa visual com fotografia forte, painel escuro e leitura editorial limpa.",
         role === "hook" ? 150 : 250
     );
+
+    const headingBaseSize = role === "hook" ? 72 : 64;
+    const headingWidth = 760;
+    // hook: espaço entre o heading (y=557) e o footer (y=862) = 305px
+    // content/cta: espaço entre heading e support text = ~180px
+    const availableHeadingHeight = role === "hook" ? 305 : 180;
+    const longestWordLen = Math.max(...heading.split(" ").map(w => w.length));
+    let headingFontSize = headingBaseSize;
+    const calcLines = (fs: number) =>
+        Math.ceil(heading.length / Math.floor(headingWidth / (fs * 0.58)));
+    while (headingFontSize > 32 && (
+        longestWordLen * headingFontSize * 0.58 > headingWidth ||
+        calcLines(headingFontSize) * headingFontSize * 1.06 > availableHeadingHeight
+    )) {
+        headingFontSize -= 2;
+    }
 
     const elements: CarouselElement[] = [
         ...buildBaseElements(slideIndex, heading, support, palette),
     ];
 
     if (role === "hook") {
-        elements.push(...buildCoverElements(slideIndex, heading, palette));
+        elements.push(...buildCoverElements(slideIndex, heading, headingFontSize, palette));
         return elements.slice(0, 20);
     }
 
@@ -451,6 +469,7 @@ export function buildGlassEditorialTemplate(params: TemplateBuildParams): Carous
             slideIndex,
             role,
             heading,
+            headingFontSize,
             support,
             copy.extras,
             palette
